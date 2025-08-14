@@ -522,7 +522,7 @@
         }
       }
     }
-    ['timeupdate','seeked','ratechange','seeking'].forEach(ev=>{
+    ['timeupdate','seeked','ratechange','seeking','loadedmetadata'].forEach(ev=>{
       el.player?.addEventListener(ev,updateHighlightFromPlayer);
       el.playerDesktop?.addEventListener(ev,updateHighlightFromPlayer);
     });
@@ -563,7 +563,6 @@
         TEXT_CH=[]; populateTextChapterUI();
         try{ await parseEpubChapters(f); addLog('info','EPUB chapters', {count:TEXT_CH.length}); }
         catch(e){ addLog('error','EPUB parse failed', String(e)); }
-        // do not set REF_TEXT here; chapter mode will pick per-chapter text
         ALIGNED_ONCE=false; refreshAlignButton();
       }else{
         try{ const txt=await f.text(); REF_TEXT=txt; addLog('info','Reference text loaded',{chars:txt.length}); TEXT_CH=[{title:f.name,text:txt,idx:0}]; populateTextChapterUI(); }
@@ -683,7 +682,7 @@
       try{const tail=sr*1|0;if(useFloat){const zf=new Float32Array(tail);RECOG.acceptWaveformFloat(zf,sr)} else{const zi=new Int16Array(tail);RECOG.acceptWaveform.length===2?RECOG.acceptWaveform(zi,sr):RECOG.acceptWaveform(zi)}}catch{}
 
       // pull all
-      const seen=[], words=[];
+      const words=[];
       const pullAll=()=>{let pulled=0;
         if(RECOG.result){for(;;){let r=RECOG.result();typeof r==='string'&&(()=>{try{r=JSON.parse(r)}catch{}})();const arr=r?.result||[],text=r?.text||'';text&&transcriptPieces.push(text);if(arr&&arr.length){arr.forEach(x=>words.push(x));pulled+=arr.length}else break}}
         if(RECOG.finalResult){let fr=RECOG.finalResult();typeof fr==='string'&&(()=>{try{fr=JSON.parse(fr)}catch{}})();const arr=fr?.result||[],text=fr?.text||'';text&&transcriptPieces.push(text);arr&&arr.length&&(arr.forEach(x=>words.push(x)),pulled+=arr.length)}
@@ -841,46 +840,105 @@
     el.audioChSel?.addEventListener('change',()=>{ const idx=+el.audioChSel.value|0; el.mapAudioIdx.value=idx; updateMapInfo(); });
     el.textChSel?.addEventListener('change',()=>{ const idx=+el.textChSel.value|0; el.mapTextIdx.value=idx; updateMapInfo(); });
 
-    /* ========== m4b chapter parsing (mp4box) ========== */
+    /* ========== m4b chapter parsing ========== */
+    // 1) Try chapter text track via mp4box.js sample extraction
     async function parseM4BChapters(file){
       addLog('info','Parsing m4b chapters…');
-      const mp4boxfile = MP4Box.createFile();
       const buf = await file.arrayBuffer();
-      const arrayBuffer = buf.slice(0); arrayBuffer.fileStart = 0;
+      const ab = buf.slice(0); ab.fileStart = 0;
+      const mp4 = MP4Box.createFile();
       const chapters=[];
-      mp4boxfile.onReady = info => {
-        // try to find a text track that acts like a chapter track
-        let timescale = info.timescale || 1000;
-        if(info.tracks && info.tracks.length){
-          info.tracks.forEach(tr=>{
-            if(tr.kind && /chap/i.test(tr.kind.schemeURI||'') || (tr.codec && /text|tx3g|wvtt|stpp/i.test(tr.codec))) {
-              const s = tr.samples || [];
-              for(const smp of s){
-                const start = smp.dts / tr.timescale;
-                const end = (smp.dts + smp.duration) / tr.timescale;
-                const title = (smp.text || smp.data || smp.description || '').toString().trim() || `Chapter ${chapters.length+1}`;
-                chapters.push({title, start, end});
-              }
-            }
-          });
-        }
-        // Fallback: QuickTime "chap" or udta (not always surfaced by mp4box) – we’ll at least set a single chapter whole file if none
-        if(!chapters.length){
-          const dur = (info.duration || 0) / (info.timescale||1000);
-          chapters.push({title:file.name, start:0, end:dur||999999});
-        }
-      };
-      mp4boxfile.appendBuffer(arrayBuffer);
-      mp4boxfile.flush();
-      // Normalize/close gaps and ensure sequential
-      chapters.sort((a,b)=>a.start-b.start);
-      for(let i=0;i<chapters.length;i++){
-        if(i<chapters.length-1) chapters[i].end = Math.min(chapters[i].end, chapters[i+1].start);
-        if(chapters[i].end <= chapters[i].start) chapters[i].end = chapters[i].start + 0.5;
+      const ready = new Promise(res => { mp4.onReady = info => res(info); });
+      mp4.appendBuffer(ab); mp4.flush();
+      const info = await ready;
+
+      let chapTrack = null;
+      for (const tr of (info.tracks||[])){
+        const name = (tr.name||'') + ' ' + (tr.alternate_group||'');
+        const kind = (tr.kind && ((tr.kind.schemeURI||'') + ' ' + (tr.kind.value||''))) || '';
+        if ((tr.codec && /text|tx3g|wvtt|stpp/i.test(tr.codec)) ||
+            /chap/i.test(name) || /chap/i.test(kind)) { chapTrack = tr; break; }
       }
-      AUDIO_CH = chapters;
+
+      if (chapTrack){
+        addLog('info','Found chapter track',{id:chapTrack.id,codec:chapTrack.codec,timescale:chapTrack.timescale});
+        const gotSamples = new Promise(res=>{
+          mp4.onSamples = (trackId,user,samples)=>{
+            if(trackId!==chapTrack.id) return;
+            for(const s of samples){
+              const start=s.dts/chapTrack.timescale;
+              const end=(s.dts+s.duration)/chapTrack.timescale;
+              let title='';
+              if (s.text) title=s.text;
+              else if (s.data) { try{ title=new TextDecoder('utf-8').decode(s.data)}catch{} }
+              chapters.push({title:(title||`Chapter ${chapters.length+1}`).trim(),start,end});
+            }
+            res();
+          };
+        });
+        mp4.setExtractionOptions(chapTrack.id, null, { nbSamples: chapTrack.nb_samples || 100000 });
+        mp4.start();
+        await gotSamples;
+      }
+
+      // 2) If not found (or empty), try Nero chpl box in udta (timestamps are /1e7 seconds)
+      if (!chapters.length){
+        const nero = parseChplFromBuffer(buf);
+        if (nero.length){ chapters.push(...nero); addLog('info','Parsed Nero chpl',{count:nero.length}); }
+      }
+
+      // finalize duration & ends
+      chapters.sort((a,b)=>a.start-b.start);
+      let dur = 0;
+      try { const AC=window.AudioContext||window.webkitAudioContext; const cx=new AC(); const ad=await cx.decodeAudioData(buf.slice(0)); dur=ad.duration; await cx.close(); } catch{}
+      for(let i=0;i<chapters.length;i++){
+        chapters[i].end = i<chapters.length-1 ? Math.min(chapters[i].end||chapters[i+1].start, chapters[i+1].start) : (chapters[i].end||dur||chapters[i].start+1);
+      }
+
+      AUDIO_CH = chapters.length ? chapters : [{title:file.name,start:0,end:dur||999999}];
       populateAudioChapterUI();
-      addLog('info','m4b chapters parsed',{count:chapters.length});
+      addLog('info','m4b chapters ready',{count:AUDIO_CH.length});
+    }
+
+    // Nero chpl parser (moov/udta/chpl), timestamps: 1/10,000,000 s (FFmpeg docs + StackOverflow) 
+    // Sources: Chapters may be in a timed text track or in a Nero 'chpl' atom. Timestamps are 1e-7s in chpl. 
+    // (See FFmpeg chapter sources + chpl timestamp unit). cite: turn4open0, turn3open0
+    function parseChplFromBuffer(buffer){
+      const dv=new DataView(buffer);
+      const len=buffer.byteLength;
+      function readUint32(off){return dv.getUint32(off,false)}
+      function readUint64(off){const hi=dv.getUint32(off,false),lo=dv.getUint32(off+4,false); return hi*4294967296 + lo;}
+      function fourCC(off){return String.fromCharCode(dv.getUint8(off),dv.getUint8(off+1),dv.getUint8(off+2),dv.getUint8(off+3))}
+      function walk(start,end,type,out){
+        let pos=start;
+        while(pos+8<=end){
+          let size=readUint32(pos), typ=fourCC(pos+4), hdr=8;
+          if(size===1 && pos+16<=end){ size=Number(readUint64(pos+8)); hdr=16; }
+          if(size<8 || pos+size>end) break;
+          if(typ===type) out.push({pos,hdr,size});
+          if(typ==='moov'||typ==='udta'||typ==='meta'||typ==='ilst') walk(pos+hdr, pos+size, type, out);
+          pos+=size;
+        }
+      }
+      const hits=[]; walk(0,len,'chpl',hits);
+      const chapters=[];
+      for(const h of hits){
+        let p=h.pos+h.hdr;
+        if(p+5>h.pos+h.size) continue;
+        const version=dv.getUint8(p); p+=1;
+        const flags=(dv.getUint8(p)<<16)|(dv.getUint8(p+1)<<8)|dv.getUint8(p+2); p+=3;
+        const count=dv.getUint8(p); p+=1;
+        for(let i=0;i<count;i++){
+          if(p+9>h.pos+h.size) break;
+          const ticks=readUint64(p); p+=8;
+          const tlen=dv.getUint8(p); p+=1;
+          let title='';
+          for(let j=0;j<tlen && p<h.pos+h.size;j++){ title+=String.fromCharCode(dv.getUint8(p++)); }
+          const start=Number(ticks)/10000000; // 1e7 ticks per second
+          chapters.push({title:title||`Chapter ${i+1}`,start,end:start});
+        }
+      }
+      return chapters;
     }
 
     /* ========== EPUB parsing (epub.js) ========== */
@@ -888,33 +946,44 @@
       addLog('info','Parsing EPUB…');
       const url=URL.createObjectURL(file);
       const book = ePub(url);
-      await book.ready;
-      const nav = await book.loaded.navigation;
+      await book.ready; // load package
+      const nav = await book.loaded.navigation; // toc
       const toc = (nav && nav.toc) ? nav.toc : [];
-      // flatten toc (one level)
-      const items=[];
-      function walk(arr){ arr.forEach(n=>{ items.push(n); if(n.subitems) walk(n.subitems); }) }
-      walk(toc);
 
-      async function itemText(href){
+      // Helper to get plain text from a TOC href via its spine item
+      async function textForHref(href){
         try{
-          const res = await book.resources.get(href);
-          if(!res) return '';
-          const html = await res.text();
-          const div = document.createElement('div'); div.innerHTML = html;
-          // remove scripts/styles
+          const clean = (href||'').split('#')[0];
+          const item = book.spine.spineItems.find(si => (si.href||'')===clean);
+          if(!item) return '';
+          const doc = await item.load(book.load.bind(book)); // returns a Document
+          const div = document.createElement('div');
+          div.appendChild(doc.documentElement.cloneNode(true));
           div.querySelectorAll('script,style,noscript').forEach(n=>n.remove());
-          return (div.textContent || '').replace(/\s+/g,' ').trim();
-        }catch{ return '' }
+          const txt = (div.textContent||'').replace(/\s+/g,' ').trim();
+          item.unload();
+          return txt;
+        }catch(e){ return ''; }
       }
 
       const out=[];
-      for(let i=0;i<items.length;i++){
-        const it=items[i], title=(it.label||it.id||`Chapter ${i+1}`).toString();
-        const text=await itemText(it.href||it.hrefs||it.url||'');
-        out.push({title, text, idx:i});
+      // flatten toc (depth-first)
+      function flatten(items){
+        items.forEach(it=>{
+          out.push(it);
+          if(it.subitems && it.subitems.length) flatten(it.subitems);
+        });
       }
-      TEXT_CH = out.filter(x=>x.text && x.text.length>0);
+      flatten(toc);
+
+      const chapters=[];
+      for(let i=0;i<out.length;i++){
+        const it=out[i];
+        const title = (it.label || it.id || `Chapter ${i+1}`).toString();
+        const text = await textForHref(it.href||it.hrefs||it.url||'');
+        if(text) chapters.push({title, text, idx:i});
+      }
+      TEXT_CH = chapters;
       populateTextChapterUI();
     }
 
@@ -929,35 +998,10 @@
       const p=activePlayer();
       el.mPrev&&(el.mPrev.onclick=()=>{p.currentTime=Math.max(0,p.currentTime-10)});
       el.mNext&&(el.mNext.onclick=()=>{if(isFinite(p.duration)) p.currentTime=Math.min(p.duration,p.currentTime+10)});
-      el.mPlay&&(el.mPlay.onclick=()=>{p.paused?p.play():p.pause(); el.mPlay.textContent=p.paused?'▶':'⏸'});
-      p.addEventListener('play',()=>{ el.mPlay.textContent='⏸'; setRate(CURRENT_RATE); });
-      p.addEventListener('pause',()=>{ el.mPlay.textContent='▶'; });
+      el.mPlay&&(el.mPlay.onclick=()=>{ if(p.paused){p.play().catch(()=>{}); el.mPlay.textContent='⏸';} else {p.pause(); el.mPlay.textContent='▶';} });
+      p.addEventListener('loadedmetadata', setMobileTimes);
+      p.addEventListener('timeupdate', setMobileTimes);
     }
-
-    // Keep the speed pill in sync on first load
-    setRate(CURRENT_RATE);
-
-    // Show initial mapping info
-    updateMapInfo();
-
-    // Auto-advance to next chapter when a chapter finishes (chapter mode)
-    function advanceOnEnd(){
-      if (!CHAPTER_MODE || !AUDIO_CH.length) return;
-      const next = CURRENT_AUDIO_CH_INDEX + 1;
-      if (next < AUDIO_CH.length) {
-        const refTxt = TEXT_CH[next + MAP_OFFSET]?.text || '';
-        runChapter(next, true, refTxt).catch(()=>{});
-      }
-    }
-    el.player?.addEventListener('ended', advanceOnEnd);
-    el.playerDesktop?.addEventListener('ended', advanceOnEnd);
-
-    // Lightweight self-checks
-    (function(){
-      const samp=resampleF32(new Float32Array([0,1,0,-1]),4,8);
-      console.assert(samp.length===8,'resample length');
-      console.assert(fmt(61.005)==='01:01.005','fmt time');
-    })();
   </script>
 </body>
 </html>
