@@ -1,406 +1,108 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Offline Transcriber — Vosk (WASM)</title>
-  <style>
-    :root{--bg:#111418;--panel:#161b21;--fg:#e8eef7;--muted:#9aa6b2;--line:#273044;--accent:#ffd666}
-    *{box-sizing:border-box}html,body{height:100%}
-    body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif}
-    header{display:grid;gap:10px;align-items:center;padding:12px;background:var(--panel);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);grid-template-columns:repeat(12,minmax(0,1fr))}
-    .field{display:flex;flex-direction:column;gap:6px}.field .lbl{font-size:12px;color:var(--muted)}
-    header .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    header .meter{display:flex;gap:10px;align-items:center;justify-content:flex-end}
-    header .opts{display:flex;gap:16px;align-items:center}
-    header .field.audio{grid-column:span 4}header .field.ref{grid-column:span 4}
-    header .actions{grid-column:span 4}header .opts{grid-column:span 6}header .meter{grid-column:span 6}
-    header .playerRow{grid-column:1/-1}
-    button,input,select{background:#1e2430;border:1px solid #2b3342;color:var(--fg);border-radius:10px;padding:10px 12px}
-    button:hover{filter:brightness(1.06)}button:disabled{opacity:.5;cursor:not-allowed;filter:none}
-    button.primary{background:var(--accent);color:#000;border-color:transparent}
-    button.danger{background:#ff6b6b;color:#000;border-color:#ff9e9e}
-    progress{height:12px;width:240px}#player{width:100%;height:42px;background:#0f131a;border-radius:10px}
-    #grid{display:grid;grid-template-columns:2fr 1fr;gap:12px;padding:12px}
-    .pane{border:1px solid var(--line);border-radius:10px;overflow:auto}
-    .pane .ttl{padding:8px 12px;border-bottom:1px solid var(--line);background:#131821;position:sticky;top:0}
-    #text{padding:12px;white-space:pre-wrap}
-    .token{padding:2px 3px;border-radius:6px;cursor:pointer}.token:hover{background:#1e2733}.token.playing{background:var(--accent);color:#000}
-    small{color:var(--muted)}.accent{background:var(--accent);color:#000;border-radius:6px;padding:0 5px}
-    #log{font:12px/1.3 ui-monospace,Consolas,monospace;white-space:pre-wrap;padding:10px}.ok{color:#baffc1}.warn{color:#ffe9a6}.bad{color:#ffb4b4}
-    #tbl{width:100%;border-collapse:collapse}#tbl th,#tbl td{border-bottom:1px solid #273044;padding:6px 8px;text-align:left;font-variant-numeric:tabular-nums}
-    #tbl th.play,#tbl td.play{width:48px}.playbtn{cursor:pointer;border:1px solid #2b3342;background:#1e2430;border-radius:6px;padding:2px 6px}.playbtn:hover{filter:brightness(1.1)}
-    .row{display:flex;gap:10px;align-items:center;padding:10px;border-top:1px solid var(--line);background:#131821}
-    @media (max-width:1100px){header .field.audio,header .field.ref{grid-column:span 6}header .actions{grid-column:span 6}header .opts{grid-column:span 6}header .meter{grid-column:span 6}}
-    @media (max-width:820px){#grid{grid-template-columns:1fr}}
-    @media (max-width:720px){header{grid-template-columns:repeat(6,minmax(0,1fr))}header .field.audio,header .field.ref,header .actions,header .opts,header .meter{grid-column:1/-1}progress{width:100%}}
-    .topbar{grid-column:1/-1;display:flex;align-items:center;gap:12px}.topbar .title{font-weight:600}.hamburger{display:none;background:#1e2430;border:1px solid #2b3342;color:var(--fg);border-radius:10px;padding:10px 12px}
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:saturate(120%) blur(2px);z-index:40}
-    .drawer{position:fixed;inset:0 auto 0 0;width:80%;max-width:420px;background:var(--panel);border-right:1px solid var(--line);transform:translateX(-105%);transition:transform .18s ease-out;z-index:50;display:flex;flex-direction:column}
-    .drawer.open{transform:translateX(0)}.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}.drawer-title{font-weight:600}.xbtn{background:#1e2430;border:1px solid #2b3342;color:var(--fg);border-radius:10px;padding:8px 10px}.drawer-body{padding:12px;display:grid;gap:12px}.drawer .sec .sec-title{font-size:12px;color:var(--muted);margin-bottom:6px}
-    :root[data-mobile="1"] .hamburger{display:inline-flex}:root[data-mobile="1"] #controlShelf{display:none}:root[data-mobile="1"] body{font-size:16px}:root[data-mobile="1"] header{grid-template-columns:1fr;gap:12px}:root[data-mobile="1"] header .playerRow{grid-column:1/-1}:root[data-mobile="1"] button,:root[data-mobile="1"] input,:root[data-mobile="1"] select{min-height:44px;font-size:16px}:root[data-mobile="1"] #player{height:52px}:root[data-mobile="1"] #grid{grid-template-columns:1fr;padding:8px}:root[data-mobile="1"] .pane .ttl{position:sticky;top:0}:root[data-mobile="1"] #text{padding:10px;line-height:1.6}:root[data-mobile="1"] .token{padding:4px 5px;border-radius:8px}:root[data-mobile="1"] .playbtn{padding:8px 12px;border-radius:10px}:root[data-mobile="1"] table{display:block;overflow:auto;-webkit-overflow-scrolling:touch}:root[data-mobile="1"] .mobile-hide{display:none}:root[data-mobile="1"] progress{width:100%}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Offline Transcriber — Vosk (WASM)</title>
+<style>
+:root {
+  --bg:#111418; --panel:#161b21; --fg:#e8eef7; --muted:#9aa6b2; --line:#273044; --accent:#ffd666;
+}
+* { box-sizing:border-box }
+html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font-family:sans-serif; }
+button, input, select { font-size:1rem; }
+.panel { background:var(--panel); padding:0.5rem; border-bottom:1px solid var(--line); }
+.log { font-family:monospace; font-size:0.85rem; max-height:10rem; overflow:auto; border:1px solid var(--line); padding:0.25rem; background:#000; }
+table { width:100%; border-collapse:collapse; }
+th, td { border:1px solid var(--line); padding:0.25rem; text-align:left; }
+audio { width:100%; }
+</style>
 </head>
 <body>
-  <header>
-    <div class="topbar">
-      <button id="menuBtn" class="hamburger" aria-label="Open menu" title="Menu">☰</button>
-      <div id="audioTitle" class="title">No audio loaded</div>
-    </div>
 
-    <div id="controlShelf">
-      <div class="field audio">
-        <div class="lbl">Audio</div>
-        <input id="audioFile" type="file" accept="audio/*" />
-      </div>
-      <div class="field ref">
-        <div class="lbl">Reference Text (optional)</div>
-        <input id="refFile" type="file" accept=".txt" />
-      </div>
-      <div class="actions">
-        <button id="go" class="primary">Transcribe</button>
-        <button id="align">Align &amp; Correct</button>
-      </div>
-      <div class="opts">
-        <label style="display:flex;gap:8px;align-items:center">
-          <input id="adaptiveToggle" type="checkbox"/><span class="lbl">Adaptive sync (experimental)</span>
-        </label>
-      </div>
-      <div class="meter">
-        <progress id="prog" max="100" value="0"></progress>
-        <button id="cancelModel" class="danger" style="display:none">Cancel</button>
-        <span id="status"><small>Ready</small></span>
-      </div>
-    </div>
+<div class="panel">
+  <label>Audio <input type="file" id="audioFile" accept="audio/*"></label>
+  <label>Reference Text (optional) <input type="file" id="refFile" accept=".txt"></label>
+  <button id="btnTranscribe">Transcribe</button>
+</div>
 
-    <div class="playerRow"><audio id="player" controls></audio></div>
-  </header>
+<div class="panel">
+  <label><input type="checkbox" id="adaptiveSync"> Adaptive sync (experimental)</label>
+  <div id="modelStatus">Loading Vosk model…</div>
+</div>
 
-  <div id="overlay" class="overlay" hidden></div>
-  <aside id="drawer" class="drawer" aria-hidden="true" aria-label="Menu">
-    <div class="drawer-head">
-      <div class="drawer-title">Menu</div>
-      <button id="closeDrawer" class="xbtn" aria-label="Close">✕</button>
-    </div>
-    <div id="drawerControls" class="drawer-body">
-      <div class="sec"><div class="sec-title">Files</div></div>
-      <div class="sec"><div class="sec-title">Actions</div></div>
-      <div class="sec"><div class="sec-title">Settings</div></div>
-    </div>
-  </aside>
+<div class="panel">
+  <audio id="player" controls></audio>
+</div>
 
-  <div id="grid">
-    <section class="pane">
-      <div class="ttl">Transcript</div>
-      <div id="text">(no transcript yet)</div>
-      <div class="ttl">Per-word timestamps</div>
-      <table id="tbl">
-        <thead><tr><th class="play">▶</th><th>#</th><th>word</th><th class="mobile-hide">start</th><th class="mobile-hide">end</th><th class="mobile-hide">conf</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </section>
-    <section class="pane">
-      <div class="ttl">Log</div>
-      <div id="log">(log starts here)</div>
-      <div class="row">
-        <button id="copy">Copy log</button>
-        <button id="save">Download log</button>
-        <div class="sp"></div>
-        <small>Runs fully <span class="accent">offline</span> in your browser using Vosk WASM.</small>
-      </div>
-    </section>
-  </div>
+<h3>Transcript</h3>
+<div id="transcript">(no transcript yet)</div>
 
-  <!-- deps -->
-  <script src="https://unpkg.com/fflate@0.8.2/umd/index.js"></script>
-  <script src="https://unpkg.com/vosk-browser@0.0.8/dist/vosk.js"></script>
+<h3>Per-word timestamps</h3>
+<table id="wordTable">
+<thead><tr><th>#</th><th>word</th><th>start</th><th>end</th><th>conf</th></tr></thead>
+<tbody></tbody>
+</table>
 
-  <script>
-    const $=id=>document.getElementById(id);
-    const el={
-      audioFile:$("audioFile"),refFile:$("refFile"),
-      go:$("go"),align:$("align"),
-      prog:$("prog"),status:$("status"),log:$("log"),
-      text:$("text"),tb:$("tbl").querySelector('tbody'),
-      copy:$("copy"),save:$("save"),player:$("player"),
-      adaptiveToggle:$("adaptiveToggle"),
-      menuBtn:$("menuBtn"),drawer:$("drawer"),overlay:$("overlay"),
-      closeDrawer:$("closeDrawer"),drawerControls:$("drawerControls"),
-      controlShelf:$("controlShelf"),audioTitle:$("audioTitle"),
-      cancelModel:$("cancelModel")
-    };
+<h3>Log</h3>
+<div class="log" id="log">(log starts here)</div>
 
-    // -------- Auto-detect & hard-coded model URLs (no UI) --------
-    function isMobileUA(){
-      const ua=navigator.userAgent||'';
-      return /Mobi|Android|iPhone|iPad|iPod/i.test(ua) ||
-             (window.matchMedia && matchMedia('(pointer:coarse)').matches) ||
-             window.innerWidth<=768;
-    }
-    const IS_MOBILE=isMobileUA();
-    document.documentElement.setAttribute('data-mobile',IS_MOBILE?'1':'0');
+<script type="module">
+import Vosk from './vosk.js';
 
-    // Build URLs relative to *this page's* folder (works at /, /AudTextSync/, /foo/bar/, etc.)
-    const BASE = new URL('.', location.href);
-    const MOBILE_MODEL_URL  = new URL('models/en-us-mobile.tar.gz', BASE).href;
-    const DESKTOP_MODEL_URL = new URL('models/en-us-desktop.zip', BASE).href;
-    const MODEL_URL = IS_MOBILE ? MOBILE_MODEL_URL : DESKTOP_MODEL_URL;
-    addLog('info','Model URL chosen',{url: IS_MOBILE ? MOBILE_MODEL_URL : DESKTOP_MODEL_URL});
+function addLog(level, msg, obj) {
+  const logEl = document.getElementById('log');
+  logEl.textContent += `\n[${new Date().toLocaleTimeString()}] ${level.toUpperCase()}: ${msg}${obj ? ' — ' + JSON.stringify(obj) : ''}`;
+  logEl.scrollTop = logEl.scrollHeight;
+}
 
-    // -------- App state --------
-    const HILITE_LEAD=.04,HILITE_LAG=.06,MIN_WORD=.08,CLICK_PAD=.04,CLICK_MIN=.3,GAP_PAD=.01;
-    let ADAPTIVE_ON=false,driftBias=0; const DRIFT_ALPHA=.12,DRIFT_CLAMP=.25;
-    let AUDIO_FILE=null,MODEL=null,RECOG=null,LOG=[];
-    let MODEL_WATCH={active:false,start:0,lastBeat:0,timer:null,canceled:false};
-    let LAST_WORDS=[],PLAY_WORDS=[],HWIN=[],REF_TEXT='',TOKENS=[],CUR_HI=-1,__playTimer=null,ALIGNED_ONCE=false;
-    const NL='\n',ts=()=>new Date().toLocaleTimeString();
-    function safe(o){try{if(o==null)return'';if(typeof o==='string')return o;return JSON.stringify(o,(k,v)=>typeof v==='bigint'?String(v):v)}catch{return'[unserializable]'}}
-    function addLog(l,m,meta){const line=`[${ts()}] ${l.toUpperCase()}: ${m}${meta?` — ${safe(meta)}`:''}`;LOG.push(line);const d=document.createElement('div');d.textContent=line;d.className=l==='error'?'bad':l==='warn'?'warn':'ok';el.log.append(d);el.log.scrollTop=el.log.scrollHeight;console[l==='error'?'error':l==='warn'?'warn':'log'](line,meta||'')}
-    function setStatus(s){el.status.innerHTML=`<small>${s}</small>`;addLog('info',s)}
-    function setProg(v){el.prog.value=v}
-    function modelWatchStart(){MODEL_WATCH.active=true;MODEL_WATCH.canceled=false;MODEL_WATCH.start=Date.now();MODEL_WATCH.lastBeat=Date.now();el.cancelModel.style.display='inline-flex';MODEL_WATCH.timer&&clearInterval(MODEL_WATCH.timer);MODEL_WATCH.timer=setInterval(()=>{const now=Date.now(),sinceBeat=(now-MODEL_WATCH.lastBeat)/1e3,sinceStart=(now-MODEL_WATCH.start)/1e3;sinceBeat>45&&addLog('warn','Model load appears stalled',{idle_secs:sinceBeat});sinceStart>120&&addLog('warn','Model load unusually long; mobile memory may be low.',{elapsed_secs:sinceStart})},5e3)}
-    function modelWatchBeat(msg){MODEL_WATCH.lastBeat=Date.now();msg&&addLog('info','model: '+msg)}
-    function modelWatchEnd(){MODEL_WATCH.active=false;MODEL_WATCH.timer&&(clearInterval(MODEL_WATCH.timer),MODEL_WATCH.timer=null);el.cancelModel.style.display='none'}
-    function modelCancel(){MODEL_WATCH.canceled=true;addLog('warn','Model load cancel requested')}
-    function refreshAlignButton(){if(!REF_TEXT||!REF_TEXT.trim()){el.align.disabled=true;el.align.textContent='Align & Correct';el.align.title='Select a reference text to enable'}else{el.align.disabled=false;el.align.textContent=ALIGNED_ONCE?'Re-Align':'Align & Correct';el.align.title=ALIGNED_ONCE?'Run alignment again':'Align transcript to reference'}}
+const IS_MOBILE = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+const BASE = new URL('.', location.href);
+const MOBILE_MODEL_URL  = new URL('models/en-us-mobile.tar.gz', BASE).href;
+const DESKTOP_MODEL_URL = new URL('models/en-us-desktop.zip', BASE).href;
+const MODEL_URL = IS_MOBILE ? MOBILE_MODEL_URL : DESKTOP_MODEL_URL;
 
-    // -------- Player helpers --------
-    function normalizeForPlayback(words){const out=words.map(w=>({word:w.word,start:+w.start,end:+w.end,conf:+(w.conf??1)})).filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end));if(!out.length)return out;for(let i=0;i<out.length;i++){const w=out[i],nextStart=i<out.length-1?out[i+1].start:w.end;w.end<w.start&&(w.end=w.start);w.end=Math.max(w.start+MIN_WORD,w.end);if(i<out.length-1){w.end=Math.min(w.end,nextStart-GAP_PAD);if(w.end<=w.start)w.end=Math.min(nextStart-GAP_PAD,w.start+MIN_WORD)}}for(let i=1;i<out.length;i++)if(out[i].start<out[i-1].end+GAP_PAD)out[i].start=Math.min(out[i].start,out[i-1].end+GAP_PAD);return out}
-    function buildHighlightWindows(){HWIN=[];const n=PLAY_WORDS.length;if(!n)return;const C=PLAY_WORDS.map(w=>(w.start+w.end)/2);for(let i=0;i<n;i++){let L=i? (C[i-1]+C[i])/2 : (PLAY_WORDS[i].start-HILITE_LEAD),R=i===n-1? (PLAY_WORDS[i].end+HILITE_LAG):(C[i]+C[i+1])/2;i&&(L=Math.max(L,HWIN[i-1].end+1e-4));R<=L&&(R=L+1e-3);HWIN[i]={start:L,end:R}}}
-    function playSegment(start,end){try{if(!el.player||!el.player.src){addLog('warn','No audio loaded for playback');return}const s=Math.max(0,(+start||0)-CLICK_PAD);let e=Math.max(s+CLICK_MIN,+end||s+CLICK_MIN);const dur=(el.player.duration&&isFinite(el.player.duration))?el.player.duration:null;dur!=null&&(e=Math.min(e,dur));try{!el.player.paused&&el.player.pause()}catch{}__playTimer&&(clearTimeout(__playTimer),__playTimer=null);el.player.currentTime=s;const p=el.player.play();p&&typeof p.then=='function'&&p.catch(err=>addLog('warn','play() rejected',String(err)));const playDur=Math.min(e-s,60);__playTimer=setTimeout(()=>{try{el.player.pause()}catch{}},playDur*1e3)}catch(err){addLog('warn','playSegment failed',String(err))}}
-    function currentTimeAdj(){return el.player.currentTime+(ADAPTIVE_ON?driftBias:0)}
-    function findWordIndexAt(t){if(!HWIN.length)return-1;let lo=0,hi=HWIN.length-1;for(;lo<=hi;){const mid=lo+hi>>1,w=HWIN[mid];if(t<w.start)hi=mid-1;else if(t>w.end)lo=mid+1;else return mid}return-1}
-    function setHighlight(i){if(i===CUR_HI)return;CUR_HI>=0&&TOKENS[CUR_HI]&&TOKENS[CUR_HI].classList.remove('playing');CUR_HI=i;if(CUR_HI>=0&&TOKENS[CUR_HI]){const t=TOKENS[CUR_HI];t.classList.add('playing');const r=t.getBoundingClientRect(),host=el.text.getBoundingClientRect();(r.top<host.top+8||r.bottom>host.bottom-8)&&t.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'})}}
-    function adaptiveUpdate(idx){if(!ADAPTIVE_ON||idx<0)return;const w=PLAY_WORDS[idx],mid=(w.start+w.end)/2,err=mid-el.player.currentTime,next=driftBias*(1-DRIFT_ALPHA)+err*DRIFT_ALPHA;driftBias=Math.max(-DRIFT_CLAMP,Math.min(DRIFT_CLAMP,next))}
-    function updateHighlightFromPlayer(){if(!PLAY_WORDS.length){setHighlight(-1);return}const idx=findWordIndexAt(currentTimeAdj());setHighlight(idx);adaptiveUpdate(idx)}
-    ['timeupdate','seeked','ratechange','seeking'].forEach(ev=>el.player.addEventListener(ev,updateHighlightFromPlayer));
-    let __raf=null;function startHiLoop(){if(__raf)return;const step=()=>{updateHighlightFromPlayer();__raf=requestAnimationFrame(step)};__raf=requestAnimationFrame(step)}
-    function stopHiLoop(){__raf&&(cancelAnimationFrame(__raf),__raf=null)}
-    el.player.addEventListener('play',startHiLoop);el.player.addEventListener('pause',stopHiLoop);el.player.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1)});
-    el.adaptiveToggle.addEventListener('change',()=>{ADAPTIVE_ON=!!el.adaptiveToggle.checked;ADAPTIVE_ON||(driftBias=0);addLog('info','Adaptive '+(ADAPTIVE_ON?'on':'off'),{bias:driftBias})});
+addLog('info','Detected platform', { mobile: IS_MOBILE });
+addLog('info','Model URL chosen', { url: MODEL_URL });
 
-    // -------- File controls --------
-    el.audioFile.onchange=()=>{AUDIO_FILE=el.audioFile.files?.[0]||null;if(AUDIO_FILE){addLog('info','Audio selected',{name:AUDIO_FILE.name,size:AUDIO_FILE.size,type:AUDIO_FILE.type});try{const url=URL.createObjectURL(AUDIO_FILE);el.player.src=url;el.player.load();el.audioTitle.textContent=AUDIO_FILE.name||'Audio'}catch(e){addLog('warn','Attach audio failed',String(e))}REF_TEXT='';el.refFile&&(el.refFile.value='');ALIGNED_ONCE=false;refreshAlignButton();addLog('info','Reference cleared for new audio')}else{refreshAlignButton();el.audioTitle.textContent='No audio loaded'}};
-    el.refFile.onchange=async()=>{const f=el.refFile.files?.[0];if(!f){REF_TEXT='';ALIGNED_ONCE=false;refreshAlignButton();return}try{const txt=await f.text();REF_TEXT=txt;addLog('info','Reference text loaded',{chars:txt.length})}catch(e){addLog('error','Read ref text failed',String(e));REF_TEXT=''}ALIGNED_ONCE=false;refreshAlignButton()};
-    el.copy.onclick=async()=>{await navigator.clipboard.writeText(LOG.join(NL));addLog('info','Log copied')};
-    el.save.onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([LOG.join(NL)],{type:'text/plain'}));a.download='offline_vosk_log.txt';a.click()};
-    el.go.onclick=()=>run().catch(e=>addLog('error','Top level failure',String(e)));
-    el.align.onclick=()=>{try{if(!LAST_WORDS.length){alert('Transcribe first');return}if(!REF_TEXT){alert('Choose a reference .txt');return}const corrected=alignAndCorrect(LAST_WORDS,REF_TEXT);addLog('info','Alignment complete',{orig:LAST_WORDS.length,corrected:corrected.length});LAST_WORDS=corrected;PLAY_WORDS=normalizeForPlayback(LAST_WORDS);buildHighlightWindows();render(PLAY_WORDS);updateHighlightFromPlayer();ALIGNED_ONCE=true;refreshAlignButton()}catch(e){addLog('error','Align failed',String(e));alert('Align failed — see log')}};
+let model;
+try {
+  addLog('info','Loading Vosk model…', IS_MOBILE ? '(mobile)' : '(desktop)');
+  model = await Vosk.createModel(MODEL_URL);
+  addLog('info','Model loaded successfully');
+  document.getElementById('modelStatus').textContent = 'Model loaded';
+} catch (e) {
+  addLog('error','Model failed to load', e);
+  document.getElementById('modelStatus').textContent = 'Model load failed';
+}
 
-    // -------- Audio decode & simple resampler --------
-    async function decodeToMonoF32(file){const buf=await file.arrayBuffer(),AC=window.AudioContext||window.webkitAudioContext,cx=new AC(),ab=await cx.decodeAudioData(buf),chs=ab.numberOfChannels,sr=ab.sampleRate,frames=ab.length;addLog('info','Audio decoded',{sr,chs,frames,secs:ab.duration.toFixed(3)});const mono=new Float32Array(frames);for(let c=0;c<chs;c++){const data=ab.getChannelData(c);for(let i=0;i<frames;i++)mono[i]+=data[i]/chs}const target=16000,res=resampleF32(mono,sr,target);addLog('info','Resampled',{from:sr,to:target,samples:res.length});await cx.close();return{f32:res,sr:target}}
-    function resampleF32(input,src,dst){if(src===dst)return input;const ratio=dst/src,outLen=Math.round(input.length*ratio),out=new Float32Array(outLen);for(let i=0;i<outLen;i++){const x=i/ratio,xi=Math.floor(x),t=x-xi,a=input[xi]||0,b=input[xi+1]||0;out[i]=a+(b-a)*t}return out}
-    function floatToInt16(f32){const i16=new Int16Array(f32.length);for(let i=0;i<f32.length;i++){let s=Math.max(-1,Math.min(1,f32[i]));i16[i]=s<0?Math.round(s*32768):Math.round(s*32767)}return i16}
+document.getElementById('btnTranscribe').addEventListener('click', async () => {
+  const audioFile = document.getElementById('audioFile').files[0];
+  if (!audioFile) return alert('Please choose an audio file first.');
+  document.getElementById('player').src = URL.createObjectURL(audioFile);
+  
+  const recognizer = new model.Recognizer({ sampleRate: 16000 });
+  const arrayBuffer = await audioFile.arrayBuffer();
+  const audioCtx = new AudioContext({ sampleRate: 16000 });
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  const pcm = audioBuffer.getChannelData(0);
 
-    // -------- Vosk runtime config (prevents silent worker/wasm failures) --------
-    if (window.Vosk && Vosk.setWasmPrefix) {
-      // Use unpkg for wasm/worker assets; or host locally (e.g., "/dist/")
-      Vosk.setWasmPrefix("https://unpkg.com/vosk-browser@0.0.8/dist/");
-    }
-    if (window.Vosk && Vosk.setLogLevel) { Vosk.setLogLevel(0); } // verbose logs
+  recognizer.acceptWaveform(pcm);
+  const result = recognizer.finalResult();
+  displayTranscript(result);
+});
 
-    async function headCheck(url){
-      try {
-        const r = await fetch(url, { method:"HEAD" });
-        return { ok:r.ok, status:r.status, len:r.headers.get("content-length"), type:r.headers.get("content-type") };
-      } catch(e){ return { ok:false, error:String(e) }; }
-    }
-    function withTimeout(promise, ms, label="operation"){
-      let t; const timer=new Promise((_,rej)=>t=setTimeout(()=>rej(new Error(label+" timed out")),ms));
-      return Promise.race([promise.finally(()=>clearTimeout(t)), timer]);
-    }
-
-    // -------- Model loading (URL only, hardcoded, no UI) --------
-    function destroyRecognizer(){if(RECOG){try{RECOG.remove&&RECOG.remove()}catch{}RECOG=null}}
-    async function ensureModel(){
-      if(typeof Vosk==='undefined'){addLog('error','Vosk not loaded');alert('Vosk failed to load');return null}
-      if(MODEL) return MODEL;
-
-      const chosen=MODEL_URL;
-      setStatus(`Loading Vosk model… (${IS_MOBILE?'mobile':'desktop'})`);
-      setProg(1); modelWatchStart(); el.cancelModel.onclick=()=>modelCancel();
-
-      const head = await headCheck(chosen);
-      if(!head.ok){
-        modelWatchEnd();
-        addLog('error','Model URL not reachable',{url:chosen,...head});
-        alert(`Model URL not reachable (${head.status || head.error}). Check the /models path & CORS.`);
-        return null;
-      }
-      addLog('info','Model URL preflight ok',{url:chosen,bytes:head.len,type:head.type});
-
-      try{
-        modelWatchBeat('createModel via URL');
-        const t0=performance.now();
-        MODEL = await withTimeout(Vosk.createModel(chosen), IS_MOBILE?150000:90000, "createModel");
-        addLog('info','Model created via URL',{ms:Math.round(performance.now()-t0),url:chosen});
-      }catch(e){
-        modelWatchEnd();
-        addLog('error','createModel(URL) failed',String(e));
-        // Optional fallback to pre-extracted model.json in same folder
-        const fallback = chosen.replace(/\.(zip|tar\.gz|tgz)$/i,'/model.json');
-        if(fallback!==chosen){
-          const probe=await headCheck(fallback);
-          if(probe.ok){
-            try{
-              addLog('info','Trying pre-extracted model.json',{url:fallback});
-              MODEL = await withTimeout(Vosk.createModel(fallback),60000,"createModel(model.json)");
-            }catch(e2){ addLog('error','Fallback model.json failed',String(e2)); }
-          }
-        }
-      } finally { modelWatchEnd(); }
-
-      if(MODEL_WATCH.canceled){setStatus('Model load canceled');return null}
-      if(!MODEL){setStatus('Model load failed');alert('Model load failed — see Log for details.');return null}
-      return MODEL;
-    }
-
-    // -------- Main run --------
-    async function run(){
-      LOG.length=0;el.log.textContent='(log starts here)';el.text.textContent='(no transcript yet)';el.tb.innerHTML='';setProg(0);
-      if(!AUDIO_FILE){alert('Choose an audio file.');return}
-      const model=await ensureModel(); if(!model) return;
-
-      const{f32,sr}=await decodeToMonoF32(AUDIO_FILE),i16=floatToInt16(f32);
-      setStatus('Creating recognizer…'); destroyRecognizer();
-      try{RECOG=model.KaldiRecognizer?new model.KaldiRecognizer(sr):new model.Recognizer(sr)}catch(e){addLog('error','Recognizer create failed',String(e));alert('Recognizer create failed — see log');return}
-      RECOG.setWords&&RECOG.setWords(true);
-      const useFloat=!!RECOG.acceptWaveformFloat;
-      addLog('info','Recognizer method',{feed:useFloat?'acceptWaveformFloat(Float32,sr)':'acceptWaveform(Int16,sr)'}); addLog('info','Recognizer ready',{sampleRate:sr});
-      setStatus('Transcribing…'); setProg(12);
-
-      const fromEvents=[],transcriptPieces=[]; let lastEvt=performance.now();
-      if(RECOG.on){
-        RECOG.on('result',m=>{lastEvt=performance.now();let r=m;typeof r==='string'&&(()=>{try{r=JSON.parse(r)}catch{}})();const arr=r?.result?.result||r?.result||[],text=r?.result?.text||r?.text||'';text&&transcriptPieces.push(text);arr.length&&(fromEvents.push(...arr),addLog('info','event result',{words:arr.length}))});
-        RECOG.on('finalresult',m=>{lastEvt=performance.now();let r=m;typeof r==='string'&&(()=>{try{r=JSON.parse(r)}catch{}})();const arr=r?.result?.result||r?.result||[],text=r?.result?.text||r?.text||'';text&&transcriptPieces.push(text);arr.length&&(fromEvents.push(...arr),addLog('info','final event',{words:arr.length}))});
-        RECOG.on('partialresult',m=>{lastEvt=performance.now();let p=m;typeof p==='string'&&(()=>{try{p=JSON.parse(p)}catch{}})();const t=p?.result?.partial||p?.partial||'';t&&addLog('info','partial',t)});
-      }
-
-      const CH=sr*.5|0; let off=0,n=0;
-      while(off<(useFloat?f32.length:i16.length)){
-        const slice=useFloat?f32.subarray(off,Math.min(f32.length,off+CH)):i16.subarray(off,Math.min(i16.length,off+CH));
-        off+=CH; n++;
-        try{useFloat?RECOG.acceptWaveformFloat(slice,sr):(RECOG.acceptWaveform.length===2?RECOG.acceptWaveform(slice,sr):RECOG.acceptWaveform(slice))}catch(e){addLog('error','acceptWaveform failed',String(e));break}
-        n%8===0&&setProg(12+Math.min(80,Math.round(off/(useFloat?f32.length:i16.length)*80)));
-        await new Promise(r=>setTimeout(r,0));
-      }
-
-      try{
-        const tail=sr*1|0;
-        if(useFloat){const zf=new Float32Array(tail);RECOG.acceptWaveformFloat(zf,sr)}
-        else{const zi=new Int16Array(tail);RECOG.acceptWaveform.length===2?RECOG.acceptWaveform(zi,sr):RECOG.acceptWaveform(zi)}
-        addLog('info','Silence tail fed',{samples:tail})
-      }catch(e){addLog('warn','Silence tail failed',String(e))}
-
-      const pullAll=()=>{let pulled=0;
-        if(RECOG.result){for(;;){let r=RECOG.result();typeof r==='string'&&(()=>{try{r=JSON.parse(r)}catch{}})();const arr=r?.result||[],text=r?.text||'';text&&transcriptPieces.push(text);if(arr&&arr.length){fromEvents.push(...arr);pulled+=arr.length}else break}}
-        if(RECOG.finalResult){let fr=RECOG.finalResult();typeof fr==='string'&&(()=>{try{fr=JSON.parse(fr)}catch{}})();const arr=fr?.result||[],text=fr?.text||'';text&&transcriptPieces.push(text);arr&&arr.length&&(fromEvents.push(...arr),pulled+=arr.length)}
-        return pulled;
-      };
-      pullAll();
-
-      const durSec=(useFloat?f32.length:i16.length)/sr,quietMs=2500,maxTail=Math.min(180000,Math.max(10000,Math.round(durSec*2500))),t0=performance.now();
-      for(;performance.now()-t0<maxTail;){
-        await new Promise(r=>setTimeout(r,150));
-        const added=pullAll();
-        if(added>0){lastEvt=performance.now();continue}
-        if(performance.now()-lastEvt>quietMs)break
-      }
-      for(let k=0;k<2;k++){await new Promise(r=>setTimeout(r,100));pullAll()}
-
-      const seen=new Set(),words=fromEvents.filter(w=>w&&w.word).map(w=>({word:String(w.word).trim(),start:+w.start,end:+w.end,conf:+w.conf})).filter(w=>w.word&&Number.isFinite(w.start)&&Number.isFinite(w.end)).sort((a,b)=>a.start-b.start).filter(w=>{const k=`${w.start}|${w.end}|${w.word}`;if(seen.has(k))return false;seen.add(k);return true});
-      LAST_WORDS=words.slice();
-
-      let autoAligned=false;
-      if(REF_TEXT&&REF_TEXT.trim().length){
-        try{
-          const corrected=alignAndCorrect(LAST_WORDS,REF_TEXT);
-          addLog('info','Auto Align & Correct',{orig:LAST_WORDS.length,corrected:corrected.length});
-          LAST_WORDS=corrected; autoAligned=true; ALIGNED_ONCE=true; refreshAlignButton();
-        }catch(e){addLog('warn','Auto align failed',String(e))}
-      }
-
-      PLAY_WORDS=normalizeForPlayback(LAST_WORDS); buildHighlightWindows();
-      addLog('info','Totals',{chunks:n,events:fromEvents.length,words:words.length,secs:durSec.toFixed(2)});
-      render(PLAY_WORDS);
-      setProg(100);
-      setStatus(`<span class="accent">Done</span> ${LAST_WORDS.length} words · ${(transcriptPieces.join(' ').trim()).length} chars${autoAligned?' (auto-aligned)':''}`);
-      updateHighlightFromPlayer();
-    }
-
-    // -------- Align & render --------
-    function normalizeToken(s){return String(s).toLowerCase().replace(/[^a-z]+/g,'')}
-    function tokenizeReference(text){return text.split(/\s+/).filter(Boolean).map(tok=>{const norm=normalizeToken(tok);return norm?{raw:tok,norm}:null}).filter(Boolean)}
-    function levenshtein(a,b){const m=a.length,n=b.length,dp=new Array(n+1);for(let j=0;j<=n;j++)dp[j]=j;for(let i=1;i<=m;i++){let prev=dp[0];dp[0]=i;for(let j=1;j<=n;j++){const ins=dp[j]+1,del=dp[j-1]+1,sub=prev+(a[i-1]===b[j-1]?0:1);prev=dp[j];dp[j]=Math.min(ins,del,sub)}}return dp[n]}
-    function sim(a,b){if(!a.length&&!b.length)return 1;const d=levenshtein(a,b);return 1-d/Math.max(1,Math.max(a.length,b.length))}
-    function joinNorm(arr){return arr.map(x=>normalizeToken(typeof x==='string'?x:x.word||x.raw||'')).join('')}
-    function alignAndCorrect(hypWords,refText){
-      const ref=tokenizeReference(refText),hyp=hypWords.map(w=>({raw:w.word,norm:normalizeToken(w.word),start:w.start,end:w.end,conf:w.conf}));
-      const n=hyp.length,m=ref.length,H=3,R=3,BIG=1e9,PEN_GROUP=.005,PEN_SIZE=.01;
-      function score(i1,i2,j1,j2){const hg=hyp.slice(i1,i2),rg=ref.slice(j1,j2),hj=joinNorm(hg),rj=rg.map(x=>x.norm).join(''),base=1-sim(hj,rj),pen=PEN_GROUP*(hg.length+rg.length-2)+PEN_SIZE*Math.abs(hg.length-rg.length);return base+pen}
-      const dp=Array.from({length:n+1},()=>Array(m+1).fill(BIG)),back=Array.from({length:n+1},()=>Array(m+1).fill(null));dp[0][0]=0;
-      for(let i=0;i<=n;i++)for(let j=0;j<=m;j++){const cur=dp[i][j];if(cur===BIG)continue;for(let hi=1;hi<=H&&i+hi<=n;hi++)for(let rj=1;rj<=R&&j+rj<=m;rj++){const c=score(i,i+hi,j,j+rj),nc=cur+c;if(nc<dp[i+hi][j+rj]){dp[i+hi][j+rj]=nc;back[i+hi][j+rj]={i0:i,j0:j,hi,rj}}}}
-      const groups=[];if(back[n][m]==null){let i=0,j=0;while(i<n&&j<m){groups.push({i0:i,j0:j,hi:1,rj:1});i++;j++}}else{let i=n,j=m;while(i>0&&j>0){const b=back[i][j];groups.push(b);i=b.i0;j=b.j0}groups.reverse()}
-      const out=[];let prevEnd=null;
-      for(const g of groups){
-        const hypG=hyp.slice(g.i0,g.i0+g.hi),refG=ref.slice(g.j0,g.j0+g.rj);
-        let gStart=Math.min(...hypG.map(t=>t.start)),gEnd=Math.max(...hypG.map(t=>t.end));
-        if(prevEnd!=null&&gStart<prevEnd){gStart=prevEnd;gEnd<gStart&&(gEnd=gStart)}
-        if(g.rj===1){out.push({word:refG[0].raw,start:gStart,end:gEnd,conf:1})}
-        else if(g.hi===1){const total=refG.reduce((a,b)=>a+b.norm.length,0)||g.rj;let cur=gStart;for(let idx=0;idx<refG.length;idx++){const rr=refG[idx],frac=(rr.norm.length||1)/total;let next=idx===refG.length-1?gEnd:Math.min(gEnd,cur+frac*(gEnd-gStart));out.push({word:rr.raw,start:cur,end:next,conf:1});cur=next}}
-        else{const step=(gEnd-gStart)/g.rj||0;for(let k=0;k<g.rj;k++){const a=gStart+k*step,b=k===g.rj-1?gEnd:gStart+(k+1)*step;out.push({word:refG[k].raw,start:a,end:b,conf:1})}}
-        prevEnd=out[out.length-1].end
-      }
-      const produced=groups.reduce((s,g)=>s+g.rj,0);
-      if(produced<ref.length){let cur=prevEnd??0;for(let j=produced;j<ref.length;j++){const w=ref[j];out.push({word:w.raw,start:cur,end:cur+.25,conf:.5});cur+=.25}}
-      return out
-    }
-    function fmt(t){if(!isFinite(t))return'';const s=t|0,ms=Math.round((t-(t|0))*1e3).toString().padStart(3,'0'),m=(s/60|0).toString().padStart(2,'0'),ss=(s%60).toString().padStart(2,'0');return`${m}:${ss}.${ms}`}
-    function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))}
-    function render(words){
-      const cont=el.text,tb=el.tb;cont.innerHTML='';tb.innerHTML='';TOKENS=[];CUR_HI=-1;
-      if(!words.length){cont.textContent='(empty)';return}
-      const frag=document.createDocumentFragment();
-      words.forEach((w,i)=>{i&&frag.append(' ');const sp=document.createElement('span');sp.className='token';sp.dataset.idx=String(i);sp.textContent=w.word;sp.title=`${fmt(w.start)} → ${fmt(w.end)} (conf ${(w.conf??0).toFixed(2)}) — click to play`;frag.append(sp)});
-      cont.append(frag);TOKENS=Array.from(cont.querySelectorAll('.token'));
-      const rows=document.createDocumentFragment();
-      words.forEach((w,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td class="play"><button class="playbtn" data-idx="${i}" title="Play word">▶</button></td><td>${i+1}</td><td>${escapeHtml(w.word)}</td><td class="mobile-hide">${fmt(w.start)}</td><td class="mobile-hide">${fmt(w.end)}</td><td class="mobile-hide">${(w.conf??0).toFixed(2)}</td>`;rows.append(tr)});
-      tb.append(rows);addLog('info','Rendered',{words:words.length})
-    }
-    el.text.addEventListener('click',ev=>{const t=ev.target.closest('.token');if(!t)return;const idx=+t.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
-    el.tb.addEventListener('click',ev=>{const b=ev.target.closest('.playbtn');if(!b)return;const idx=+b.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
-
-    // -------- Self-checks & UI init --------
-    (function(){const samp=resampleF32(new Float32Array([0,1,0,-1]),4,8);console.assert(samp.length===8,'resample length');console.assert(fmt(61.005)==='01:01.005','fmt time');const t=['a','b'].join(NL);console.assert(t==='a\nb','NL join');const sample=normalizeForPlayback([{word:'a',start:0,end:.05},{word:'b',start:.05,end:.1},{word:'c',start:.1,end:.15}]);PLAY_WORDS=sample;buildHighlightWindows();const covers=t=>findWordIndexAt(t)>=0;console.assert(covers(0.00)&&covers(0.06)&&covers(0.14),'highlight covers')})();
-    addLog('info','Ready. Auto-detecting model in background (no model UI).');
-    addLog('info','Env',{ua:navigator.userAgent,deviceMemory:navigator.deviceMemory||null}); refreshAlignButton();
-
-    // Drawer (mobile)
-    (function(){
-      function moveControls(toDrawer){
-        const host=toDrawer?el.drawerControls:el.controlShelf; if(!host)return;
-        [el.audioFile.closest('.field.audio'),
-         el.refFile.closest('.field.ref'),
-         el.align.closest('.actions'),
-         el.adaptiveToggle.closest('label').parentElement,
-         el.prog.closest('.meter')].forEach(n=>{n&&n.parentElement!==host&&host.appendChild(n)});
-      }
-      function applyMobile(){
-        const on=IS_MOBILE;
-        document.documentElement.setAttribute('data-mobile',on?'1':'0');
-        moveControls(on);
-        try{
-          el.refFile&&el.refFile.setAttribute('accept','.txt,text/plain,*/*');
-          el.audioFile&&el.audioFile.setAttribute('accept','audio/*');
-        }catch(e){addLog('warn','Mobile accept adjust failed',String(e))}
-      }
-      applyMobile();
-      window.addEventListener('resize',applyMobile,{passive:true});
-      function setDrawer(o){o?(el.drawer.classList.add('open'),el.overlay.hidden=false,el.drawer.setAttribute('aria-hidden','false')):(el.drawer.classList.remove('open'),el.overlay.hidden=true,el.drawer.setAttribute('aria-hidden','true'))}
-      el.menuBtn.addEventListener('click',()=>setDrawer(true));
-      el.closeDrawer.addEventListener('click',()=>setDrawer(false));
-      el.overlay.addEventListener('click',()=>setDrawer(false));
-    })();
-  </script>
+function displayTranscript(result) {
+  const transcriptDiv = document.getElementById('transcript');
+  transcriptDiv.textContent = result.text || '(no text)';
+  const tbody = document.querySelector('#wordTable tbody');
+  tbody.innerHTML = '';
+  (result.result || []).forEach((w,i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i+1}</td><td>${w.word}</td><td>${w.start.toFixed(2)}</td><td>${w.end.toFixed(2)}</td><td>${w.conf.toFixed(2)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+</script>
 </body>
 </html>
