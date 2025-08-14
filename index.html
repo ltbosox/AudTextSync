@@ -79,11 +79,11 @@
     #mText .token{padding:4px 6px;border-radius:8px}
     #mText .token.playing{background:var(--accent);color:#000}
 
-    /* chapter/time row below viewport */
+    /* chapter/time row */
     #mChapterRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:center}
     .mChip{font-size:18px;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#1a1f28}
 
-    /* Transport */
+    /* Transport + bottom pills */
     #mTransport{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
     .mBtn{display:flex;align-items:center;justify-content:center;border-radius:16px;padding:18px;border:1px solid #2b3342;background:#1e2430;font-size:24px}
     .mBtn:active{transform:scale(.98)}
@@ -92,16 +92,25 @@
 
     /* Speed popover */
     #speedPopover{position:fixed;z-index:60;min-width:220px;border:1px solid var(--line);background:#0f131a;border-radius:12px;padding:10px;display:none;box-shadow:0 6px 20px rgba(0,0,0,.45)}
-    #speedPopover .row{display:flex;gap:8px;border:0;background:transparent;padding:0}
+    #speedPopover .row{display:flex;gap:8px;flex-wrap:wrap}
     .speedOpt{flex:1;border:1px solid #2b3342;background:#1e2430;border-radius:10px;padding:8px 10px;text-align:center;cursor:pointer}
     .speedOpt:hover{filter:brightness(1.07)}
     .speedCustom{display:flex;gap:8px;margin-top:8px}
     .speedCustom input{flex:1;text-align:center}
     .speedCustom button{padding:10px 12px}
 
-    /* keep desktop table hidden on mobile */
+    /* hide desktop table on mobile */
     :root[data-mobile="1"] #grid{display:none}
   </style>
+  <script>
+    /* Set data-mobile ASAP so CSS picks the right shell immediately */
+    (function(){
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'')
+        || (window.matchMedia && matchMedia('(pointer:coarse)').matches)
+        || (typeof window!=='undefined' && window.innerWidth<=768);
+      document.documentElement.setAttribute('data-mobile',isMobile?'1':'0');
+    })();
+  </script>
 </head>
 <body>
 
@@ -151,7 +160,7 @@
 
   <!-- Speed popover (mobile) -->
   <div id="speedPopover" role="dialog" aria-label="Playback speed">
-    <div class="row" style="gap:8px;flex-wrap:wrap">
+    <div class="row">
       <div class="speedOpt" data-sp="0.75">0.75×</div>
       <div class="speedOpt" data-sp="0.90">0.90×</div>
       <div class="speedOpt" data-sp="1.00">1.00×</div>
@@ -242,6 +251,18 @@
   <script src="https://unpkg.com/vosk-browser@0.0.8/dist/vosk.js"></script>
 
   <script>
+    /* ===== Crash guard: surface any JS errors into the Log pane ===== */
+    window.addEventListener('error', e => {
+      const log=document.getElementById('log');
+      if (log){
+        const d=document.createElement('div');
+        d.className='bad';
+        d.textContent='[JS ERROR] '+(e.message||e.error||'unknown');
+        log.appendChild(d);
+      }
+      console.error(e);
+    });
+
     /* ===================== Shared refs & state ===================== */
     const $=id=>document.getElementById(id);
     const el={
@@ -268,9 +289,8 @@
       // mobile player
       player:$("player")
     };
-    function activePlayer(){ return IS_MOBILE ? el.player : el.playerDesktop; }
 
-    /* ========== Device detection & model URLs (no UI exposed) ========= */
+    /* Device flag (kept in JS too) */
     function isMobileUA(){
       const ua=navigator.userAgent||'';
       return /Mobi|Android|iPhone|iPad|iPod/i.test(ua)
@@ -278,8 +298,8 @@
           || window.innerWidth<=768;
     }
     let IS_MOBILE=isMobileUA();
-    document.documentElement.setAttribute('data-mobile',IS_MOBILE?'1':'0');
-    window.addEventListener('resize',()=>{ const was=IS_MOBILE; IS_MOBILE=isMobileUA(); if(was!==IS_MOBILE){location.reload()} });
+
+    function activePlayer(){ return IS_MOBILE ? el.player : el.playerDesktop; }
 
     // hardcoded model URLs
     const BASE = new URL('.', location.href);
@@ -311,27 +331,27 @@
       if(open){ el.drawer.classList.add('open'); el.overlay.hidden=false; el.drawer.setAttribute('aria-hidden','false'); }
       else { el.drawer.classList.remove('open'); el.overlay.hidden=true; el.drawer.setAttribute('aria-hidden','true'); }
     }
-    el.mMenu.addEventListener('click',()=>setDrawer(true));
-    el.closeDrawer.addEventListener('click',()=>setDrawer(false));
-    el.overlay.addEventListener('click',()=>setDrawer(false));
+    if(el.mMenu){ el.mMenu.addEventListener('click',()=>setDrawer(true)); }
+    if(el.closeDrawer){ el.closeDrawer.addEventListener('click',()=>setDrawer(false)); }
+    if(el.overlay){ el.overlay.addEventListener('click',()=>setDrawer(false)); }
 
     // Move desktop controls into the drawer on mobile
     (function moveControlsToDrawer(){
       if(!IS_MOBILE) return;
       const filesHost=el.secFiles, actionsHost=el.secActions, settingsHost=el.secSettings;
-      if(el.audioFile?.parentElement) filesHost.appendChild(el.audioFile.closest('.field.audio'));
-      if(el.refFile?.parentElement)   filesHost.appendChild(el.refFile.closest('.field.ref'));
-      if(el.go && el.align){ actionsHost.appendChild(el.go.closest('.actions')); }
-      if(el.adaptiveToggle){ settingsHost.appendChild(el.adaptiveToggle.closest('label').parentElement); }
-      if(el.prog){ settingsHost.appendChild(el.prog.closest('.meter')); }
+      if(filesHost && el.audioFile?.parentElement) filesHost.appendChild(el.audioFile.closest('.field.audio'));
+      if(filesHost && el.refFile?.parentElement)   filesHost.appendChild(el.refFile.closest('.field.ref'));
+      if(actionsHost && el.go && el.align){ actionsHost.appendChild(el.go.closest('.actions')); }
+      if(settingsHost && el.adaptiveToggle){ settingsHost.appendChild(el.adaptiveToggle.closest('label').parentElement); }
+      if(settingsHost && el.prog){ settingsHost.appendChild(el.prog.closest('.meter')); }
     })();
 
     /* ===================== Speed popover ===================== */
     function setRate(v){
       const p=activePlayer();
       CURRENT_RATE=Math.max(0.5,Math.min(3.0,Number(v)||1));
-      p.playbackRate=CURRENT_RATE;
-      el.mSpeed.textContent=CURRENT_RATE.toFixed(2)+'×';
+      if(p) p.playbackRate=CURRENT_RATE;
+      if(el.mSpeed) el.mSpeed.textContent=CURRENT_RATE.toFixed(2)+'×';
     }
     function openSpeedPopover(){
       const rect=el.mSpeed.getBoundingClientRect();
@@ -339,14 +359,13 @@
       el.speedPopover.style.top=Math.round(rect.bottom+8)+'px';
       el.speedPopover.style.display='block';
       el.speedInput.value=CURRENT_RATE.toFixed(2);
-      // trap clicks outside
       const onDoc=(ev)=>{ if(!el.speedPopover.contains(ev.target) && ev.target!==el.mSpeed){ closeSpeedPopover(); document.removeEventListener('mousedown',onDoc,true); } };
       document.addEventListener('mousedown',onDoc,true);
     }
     function closeSpeedPopover(){ el.speedPopover.style.display='none'; }
-    el.mSpeed.addEventListener('click',openSpeedPopover);
-    el.speedApply.addEventListener('click',()=>{ setRate(el.speedInput.value); closeSpeedPopover(); });
-    el.speedPopover.querySelectorAll('.speedOpt').forEach(opt=>opt.addEventListener('click',()=>{ setRate(opt.dataset.sp); closeSpeedPopover(); }));
+    if(el.mSpeed){ el.mSpeed.addEventListener('click',openSpeedPopover); }
+    if(el.speedApply){ el.speedApply.addEventListener('click',()=>{ setRate(el.speedInput.value); closeSpeedPopover(); }); }
+    document.querySelectorAll('.speedOpt').forEach(opt=>opt.addEventListener('click',()=>{ setRate(opt.dataset.sp); closeSpeedPopover(); }));
 
     /* ===================== Mobile header / seek ===================== */
     function fmtClock(sec){ if(!isFinite(sec)) return '0:00'; const s=Math.max(0,sec|0), m=(s/60|0), ss=(s%60).toString().padStart(2,'0'); return `${m}:${ss}`; }
@@ -358,7 +377,7 @@
       el.mTotal.textContent=fmtClock(p.duration);
       el.mSeek.value = Math.round((p.currentTime / p.duration) * 1000) || 0;
     }
-    if(IS_MOBILE){
+    if(el.mSeek){
       el.mSeek.addEventListener('input',()=>{
         const p=activePlayer(); if(!p || !isFinite(p.duration)) return;
         p.currentTime = (+el.mSeek.value/1000)*p.duration;
@@ -417,7 +436,7 @@
       if(CUR_HI>=0){
         TOKENS[CUR_HI] && TOKENS[CUR_HI].classList.add('playing');
         MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.add('playing');
-        if(TOKENS[CUR_HI]){
+        if(TOKENS[CUR_HI] && el.text){
           const t=TOKENS[CUR_HI], r=t.getBoundingClientRect(), host=el.text.getBoundingClientRect();
           (r.top<host.top+8||r.bottom>host.bottom-8)&&t.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'})
         }
@@ -441,14 +460,13 @@
       }
     }
     ;['timeupdate','seeked','ratechange','seeking'].forEach(ev=>{
-      el.player.addEventListener(ev,updateHighlightFromPlayer);
-      el.playerDesktop.addEventListener(ev,updateHighlightFromPlayer);
+      if(el.player) el.player.addEventListener(ev,updateHighlightFromPlayer);
+      if(el.playerDesktop) el.playerDesktop.addEventListener(ev,updateHighlightFromPlayer);
     });
     let __raf=null;function startHiLoop(){if(__raf)return;const step=()=>{updateHighlightFromPlayer();__raf=requestAnimationFrame(step)};__raf=requestAnimationFrame(step)}
     function stopHiLoop(){__raf&&(cancelAnimationFrame(__raf),__raf=null)}
-    el.player.addEventListener('play',startHiLoop); el.playerDesktop.addEventListener('play',startHiLoop);
-    el.player.addEventListener('pause',stopHiLoop); el.playerDesktop.addEventListener('pause',stopHiLoop);
-    el.player.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1)}); el.playerDesktop.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1)});
+    if(el.player){ el.player.addEventListener('play',startHiLoop); el.player.addEventListener('pause',stopHiLoop); el.player.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1)}); }
+    if(el.playerDesktop){ el.playerDesktop.addEventListener('play',startHiLoop); el.playerDesktop.addEventListener('pause',stopHiLoop); el.playerDesktop.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1)}); }
     if(el.adaptiveToggle) el.adaptiveToggle.addEventListener('change',()=>{ADAPTIVE_ON=!!el.adaptiveToggle.checked;ADAPTIVE_ON||(driftBias=0);addLog('info','Adaptive '+(ADAPTIVE_ON?'on':'off'),{bias:driftBias})});
 
     /* ===================== File I/O ===================== */
@@ -458,8 +476,8 @@
       addLog('info','Audio selected',{name:file.name,size:file.size,type:file.type});
       try{
         const url=URL.createObjectURL(file);
-        const p=activePlayer(); p.src=url; p.load();
-        if(IS_MOBILE){ el.mTitle.textContent=file.name || 'Audio' } else { el.audioTitle.textContent=file.name || 'Audio' }
+        const p=activePlayer(); if (p){ p.src=url; p.load(); }
+        if(IS_MOBILE){ el.mTitle.textContent=file.name || 'Audio' } else { if(el.audioTitle) el.audioTitle.textContent=file.name || 'Audio' }
       }catch(e){ addLog('warn','Attach audio failed',String(e)) }
       REF_TEXT=''; if(el.refFile) el.refFile.value=''; ALIGNED_ONCE=false; refreshAlignButton(); addLog('info','Reference cleared for new audio')
     }
@@ -547,9 +565,9 @@
     async function run(){
       LOG.length=0; if(el.log) el.log.textContent='(log starts here)';
       if(el.text) el.text.textContent='(no transcript yet)'; if(el.tb) el.tb.innerHTML='';
-      el.mText.textContent='(no transcript yet)';
+      if(el.mText) el.mText.textContent='(no transcript yet)';
       setProg(0);
-      if(!AUDIO_FILE){alert('Choose an audio file.');setDrawer(true);return}
+      if(!AUDIO_FILE){alert('Choose an audio file (hamburger ▶ Files).');setDrawer(true);return}
       const model=await ensureModel(); if(!model) return;
 
       const{f32,sr}=await decodeToMonoF32(AUDIO_FILE),i16=floatToInt16(f32);
@@ -617,8 +635,8 @@
       setStatus(`<span class="accent">Done</span> ${LAST_WORDS.length} words`);
       updateHighlightFromPlayer();
 
-      // ensure mobile player is ready + keep speed
-      const p=activePlayer(); p.playbackRate=CURRENT_RATE;
+      // keep mobile speed applied
+      const p=activePlayer(); if(p) p.playbackRate=CURRENT_RATE;
     }
 
     /* ===================== Align & render (desktop + mobile) ===================== */
@@ -665,24 +683,24 @@
         }
       }
       // mobile 3-line viewport
-      const m=el.mText; m.innerHTML=''; MOB_TOKENS=[];
-      if(!words.length){m.textContent='(empty)'} else {
-        const frag2=document.createDocumentFragment();
-        words.forEach((w,i)=>{i&&frag2.append(' ');const sp=document.createElement('span');sp.className='token';sp.dataset.idx=String(i);sp.textContent=w.word;frag2.append(sp)});
-        m.append(frag2); MOB_TOKENS=Array.from(m.querySelectorAll('.token'));
+      if(el.mText){
+        const m=el.mText; m.innerHTML=''; MOB_TOKENS=[];
+        if(!words.length){m.textContent='(empty)'} else {
+          const frag2=document.createDocumentFragment();
+          words.forEach((w,i)=>{i&&frag2.append(' ');const sp=document.createElement('span');sp.className='token';sp.dataset.idx=String(i);sp.textContent=w.word;frag2.append(sp)});
+          m.append(frag2); MOB_TOKENS=Array.from(m.querySelectorAll('.token'));
+        }
+        el.mChapterLen.textContent = words.length ? fmt(words[words.length-1].end).slice(0,5) : '—';
       }
-      // simple chapter-ish labels
-      el.mChapterLen.textContent = words.length ? fmt(words[words.length-1].end).slice(0,5) : '—';
       addLog('info','Rendered',{words:words.length})
     }
 
     // clicks
     if(el.text) el.text.addEventListener('click',ev=>{const t=ev.target.closest('.token');if(!t)return;const idx=+t.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
     if(el.tb) el.tb.addEventListener('click',ev=>{const b=ev.target.closest('.playbtn');if(!b)return;const idx=+b.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
-    el.mText.addEventListener('click',ev=>{const t=ev.target.closest('.token');if(!t)return;const idx=+t.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
+    if(el.mText) el.mText.addEventListener('click',ev=>{const t=ev.target.closest('.token');if(!t)return;const idx=+t.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
 
     /* ===================== Self-checks & init ===================== */
-    (function(){const t=['a','b'].join('\n');console.assert(t==='a\nb','NL join')})();
     addLog('info','Ready. Auto-detecting model in background (no model UI).');
     addLog('info','Env',{ua:navigator.userAgent,deviceMemory:navigator.deviceMemory||null});
     if(el.go) el.go.onclick=()=>run().catch(e=>addLog('error','Top level failure',String(e)));
@@ -692,9 +710,9 @@
     // mobile transport buttons
     if(IS_MOBILE){
       const p=activePlayer();
-      el.mPrev.onclick=()=>{p.currentTime=Math.max(0,p.currentTime-10)}
-      el.mNext.onclick=()=>{if(isFinite(p.duration)) p.currentTime=Math.min(p.duration,p.currentTime+10)}
-      el.mPlay.onclick=()=>{p.paused?p.play():p.pause(); el.mPlay.textContent=p.paused?'▶':'⏸'}
+      if(el.mPrev) el.mPrev.onclick=()=>{p.currentTime=Math.max(0,p.currentTime-10)}
+      if(el.mNext) el.mNext.onclick=()=>{if(isFinite(p.duration)) p.currentTime=Math.min(p.duration,p.currentTime+10)}
+      if(el.mPlay) el.mPlay.onclick=()=>{p.paused?p.play():p.pause(); el.mPlay.textContent=p.paused?'▶':'⏸'}
       p.addEventListener('play',()=>{el.mPlay.textContent='⏸'; setRate(CURRENT_RATE)});
       p.addEventListener('pause',()=>{el.mPlay.textContent='▶'});
     }
