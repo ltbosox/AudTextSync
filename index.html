@@ -140,10 +140,12 @@
     const IS_MOBILE=isMobileUA();
     document.documentElement.setAttribute('data-mobile',IS_MOBILE?'1':'0');
 
-    // Change these two paths to match your hosting:
-    const MOBILE_MODEL_URL  = location.origin + "/models/en-us-mobile.tar.gz";
-    const DESKTOP_MODEL_URL = location.origin + "/models/en-us-desktop.zip";
+    // Build URLs relative to *this page's* folder (works at /, /AudTextSync/, /foo/bar/, etc.)
+    const BASE = new URL('.', location.href);
+    const MOBILE_MODEL_URL  = new URL('models/en-us-mobile.tar.gz', BASE).href;
+    const DESKTOP_MODEL_URL = new URL('models/en-us-desktop.zip', BASE).href;
     const MODEL_URL = IS_MOBILE ? MOBILE_MODEL_URL : DESKTOP_MODEL_URL;
+    addLog('info','Model URL chosen',{url: IS_MOBILE ? MOBILE_MODEL_URL : DESKTOP_MODEL_URL});
 
     // -------- App state --------
     const HILITE_LEAD=.04,HILITE_LAG=.06,MIN_WORD=.08,CLICK_PAD=.04,CLICK_MIN=.3,GAP_PAD=.01;
