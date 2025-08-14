@@ -373,7 +373,6 @@
     if(el.cancelModel) el.cancelModel.onclick=()=>modelCancel();
 
     /* ===================== Player helpers & highlight ===================== */
-    const DRIFT_ALPHA=.12,DRIFT_CLAMP=.25;
     function normalizeForPlayback(words){
       const out=words.map(w=>({word:w.word,start:+w.start,end:+w.end,conf:+(w.conf??1)})).filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end));
       if(!out.length) return out;
