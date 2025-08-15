@@ -283,7 +283,6 @@
   <script src="https://unpkg.com/fflate@0.8.2/umd/index.js"></script>
   <script src="https://unpkg.com/vosk-browser@0.0.8/dist/vosk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js"></script>
 
   <script>
     /* ===================== Crash guard to Log ===================== */
@@ -805,76 +804,118 @@
     el.tb?.addEventListener('click',ev=>{const b=ev.target.closest('.playbtn');if(!b)return;const idx=+b.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
     el.mText?.addEventListener('click',ev=>{const t=ev.target.closest('.token');if(!t)return;const idx=+t.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
 
-    // --- FFmpeg dynamic loader (CDN → CDN → local) ---
-    async function loadScript(src, timeoutMs=45000){
+    // --- FFmpeg dynamic loader (Prefers local → CDN fallback, with file:// guard) ---
+    async function loadScript(src, timeoutMs = 45000){
       return new Promise((resolve, reject)=>{
         const s = document.createElement('script');
-        let done = false, timer = setTimeout(()=>{ if(!done){ done=true; s.remove(); reject(new Error('timeout')); } }, timeoutMs);
-        s.src = src; s.async = true; s.onload = ()=>{ if(!done){ done=true; clearTimeout(timer); resolve(); } };
-        s.onerror = (e)=>{ if(!done){ done=true; clearTimeout(timer); reject(new Error('network error')); } };
+        let done = false;
+        const timer = setTimeout(()=>{ if(!done){ done=true; s.remove(); reject(new Error('timeout')); } }, timeoutMs);
+        s.src = src; s.async = true;
+        s.onload = ()=>{ if(!done){ done=true; clearTimeout(timer); resolve(); } };
+        s.onerror = ()=>{ if(!done){ done=true; clearTimeout(timer); reject(new Error('network error')); } };
         document.head.appendChild(s);
       });
     }
     
-    // Try to ensure window.FFmpeg exists
+    /**
+     * Quick HEAD probe for availability.
+     */
+    async function headOk(url){
+      try{
+        const r = await fetch(url, { method:'HEAD' });
+        return r.ok;
+      }catch{ return false; }
+    }
+    
+    /**
+     * Prefer local /ffmpeg copies (next to this HTML) to avoid network errors.
+     * Then fall back to CDNs.
+     * IMPORTANT: Using file:// will block ffmpeg-core.wasm loading. Serve over http://
+     */
     async function loadFFmpegIfNeeded(){
-      if (window.FFmpeg) return 'already-present';
-      const sources = [
+      if (window.FFmpeg) return 'already';
+    
+      const LOCAL_BASE = new URL('ffmpeg/', location.href).href; // e.g. ./ffmpeg/
+      const CANDIDATES = [
+        // Prefer local first (self-host)
+        new URL('ffmpeg.min.js', LOCAL_BASE).href,
+    
+        // CDN fallbacks
         'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js',
         'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js',
-        new URL('ffmpeg/ffmpeg.min.js', location.href).href  // local fallback
       ];
-      for (const url of sources){
+    
+      // If we’re on file://, warn loudly (wasm won’t load)
+      if (location.protocol === 'file:'){
+        addLog('warn',
+          'You are opening this file with file:// . WebAssembly (ffmpeg-core.wasm) cannot load this way. ' +
+          'Run a tiny local web server and open via http:// (instructions shown below).'
+        );
+      }
+    
+      for (const url of CANDIDATES){
         try{
-          addLog('info','Loading FFmpeg script…',{url});
+          // For the local path, do a quick HEAD probe so we don’t log a false “network error”
+          if (url.startsWith(LOCAL_BASE)){
+            const ok = await headOk(url);
+            if (!ok){ addLog('warn','Local ffmpeg.min.js not found at', { url }); continue; }
+          }
+          addLog('info','Loading FFmpeg script…',{ url });
           await loadScript(url, 60000);
-          if (window.FFmpeg){ addLog('info','FFmpeg script OK',{url}); return url; }
+          if (window.FFmpeg){
+            addLog('info','FFmpeg script OK',{ url });
+            return url;
+          }
         }catch(err){
-          addLog('warn','FFmpeg script failed',{url,err:String(err)});
+          addLog('warn','FFmpeg script failed',{ url, err: String(err) });
         }
       }
       throw new Error('FFmpeg script could not be loaded from any source');
     }
     
-    /* ===== ffmpeg.wasm fallback for .m4b slicing ===== */
+    /* ===== ffmpeg.wasm bootstrap ===== */
     let __ffmpeg = null, __ffmpegLoading = null;
-
+    
     async function ensureFFmpeg(){
       if (__ffmpeg) return __ffmpeg;
       if (__ffmpegLoading) return __ffmpegLoading;
     
-      // Make sure FFmpeg global is available (loads from CDN or local /ffmpeg)
+      // 1) Ensure global FFmpeg wrapper is present
       if (!window.FFmpeg){
-        try { await loadFFmpegIfNeeded(); }
-        catch(e){
-          addLog('error','FFmpeg script not available — see self-host notes below', String(e));
+        await loadFFmpegIfNeeded().catch(e=>{
+          addLog('error','FFmpeg script not available — cannot slice/export WAV from .m4b', String(e));
           throw e;
-        }
+        });
       }
     
       const { createFFmpeg } = FFmpeg;
     
-      // Pick a corePath that actually responds
-      const coreCandidates = [
-        'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js',
-        'https://unpkg.com/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js',
-        new URL('ffmpeg/ffmpeg-core.js', location.href).href  // local fallback
+      // 2) Pick a corePath that actually exists (prefer local, then CDNs)
+      const LOCAL_BASE = new URL('ffmpeg/', location.href).href;
+      const CORE_CANDIDATES = [
+        new URL('ffmpeg-core.js', LOCAL_BASE).href,                                          // local
+        'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js',            // cdn
+        'https://unpkg.com/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js',                       // cdn
       ];
-      let corePath = coreCandidates[0];
-      for (const c of coreCandidates){
-        try {
-          const head = await headCheck(c);
-          if (head.ok){ corePath = c; break; }
-        } catch {}
+    
+      let corePath = CORE_CANDIDATES[0];
+      let found = false;
+      for (const c of CORE_CANDIDATES){
+        if (c.startsWith(LOCAL_BASE)){
+          if (await headOk(c)){ corePath = c; found = true; break; }
+        } else {
+          // Only try CDNs if not file://
+          if (location.protocol !== 'file:' && await headOk(c)){ corePath = c; found = true; break; }
+        }
+      }
+      if (!found){
+        addLog('error','ffmpeg-core.js not found locally or reachable via CDN. See “Self-host checklist” below.');
       }
     
-      const ff = createFFmpeg({
-        log: false,
-        corePath // ffmpeg-core.js (the .wasm will be resolved next to it)
-      });
-    
       __ffmpegLoading = (async()=>{
-        addLog('info','Loading ffmpeg.wasm…',{corePath});
+        // NOTE: ffmpeg-core.js will load ffmpeg-core.wasm and ffmpeg-core.worker.js from the same directory.
+        addLog('info','Loading ffmpeg.wasm…',{ corePath });
+        const ff = createFFmpeg({ log: false, corePath });
         await ff.load();
         addLog('info','ffmpeg.wasm ready');
         return ff;
@@ -884,6 +925,38 @@
       return __ffmpeg;
     }
 
+    // Informative probe that disables .m4b-only actions if ffmpeg can’t be loaded
+    async function probeFfmpegAvailabilityOnce(){
+      const needsFfmpegBtns = [el.exportWav, el.sliceReplaceWav].filter(Boolean);
+      try{
+        // Don’t fully load wasm; just check that we can at least fetch one of the core files
+        const localCore = new URL('ffmpeg/ffmpeg-core.js', location.href).href;
+        const cdnCore1 = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js';
+        const cdnCore2 = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js';
+        const ok = (await headOk(localCore)) ||
+                   (location.protocol!=='file:' && (await headOk(cdnCore1) || await headOk(cdnCore2)));
+        if (!ok){
+          needsFfmpegBtns.forEach(b=>{ b.disabled = true; b.title = 'FFmpeg unavailable — see “Self-host checklist” in the Log/Drawer.'; });
+          addLog('warn','FFmpeg unavailable. “Export WAV” and “Slice → Use WAV” disabled.');
+          addLog('info',
+            'Self-host checklist:\n' +
+            '1) Create a folder named "ffmpeg" next to this HTML file.\n' +
+            '2) Put these files into ./ffmpeg/ :\n' +
+            '   - ffmpeg.min.js (from @ffmpeg/ffmpeg@0.12.10)\n' +
+            '   - ffmpeg-core.js, ffmpeg-core.wasm, ffmpeg-core.worker.js (from @ffmpeg/core@0.12.10)\n' +
+            '3) Serve this folder over HTTP (not file://). Example on Windows or Mac:\n' +
+            '   - Python:  python -m http.server 8000\n' +
+            '   - Then open:  http://127.0.0.1:8000/<yourfile>.html\n' +
+            'If you must use CDNs, ensure your network allows cdn.jsdelivr.net and unpkg.com .'
+          );
+        }else{
+          addLog('info','FFmpeg seems reachable (local or CDN). Buttons enabled.');
+        }
+      }catch(e){
+        addLog('warn','FFmpeg probe failed', String(e));
+      }
+    }
+    
     // Slice [startSec, endSec] from an .m4b into a 16k mono WAV blob
     async function m4bSliceToWavUsingFFmpeg(file, startSec, endSec){
       const ff = await ensureFFmpeg();
@@ -1443,6 +1516,8 @@
 
     // Optional: open the drawer by default on desktop so controls are obvious
     if (!IS_MOBILE) setTimeout(() => setDrawer(true), 0);
+    
+    probeFfmpegAvailabilityOnce();
   </script>
 </body>
 </html>
