@@ -5,9 +5,8 @@
   <title>FFmpeg WASM — M4B Chapter to WAV (Local-First, Static UMD)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Prefer the local UMD so document.currentScript works (needs the split chunk beside it). -->
+  <!-- Prefer local UMD; needs its split chunk next to it (e.g., 814.ffmpeg.min.js) -->
   <script src="./ffmpeg/ffmpeg.min.js"></script>
-  <!-- Make sure the split chunk shipped with your ffmpeg.min.js is present too (e.g. 814.ffmpeg.min.js). -->
 
   <style>
     :root{--bg:#0f1216;--panel:#161b21;--fg:#e8eef7;--muted:#9aa6b2;--line:#273044;--accent:#ffd666}
@@ -28,19 +27,26 @@
   </style>
 
   <script>
-    // Wait helper
+    // --- small helpers -------------------------------------------------------
     function waitFor(pred, ms = 20000, step = 50) {
-      return new Promise((resolve, reject) => {
+      return new Promise((res, rej) => {
         const t0 = performance.now();
         (function poll(){
-          if (pred()) return resolve();
-          if (performance.now() - t0 > ms) return reject(new Error('timeout'));
+          if (pred()) return res();
+          if (performance.now() - t0 > ms) return rej(new Error('timeout'));
           setTimeout(poll, step);
         })();
       });
     }
 
-    // Core sources for each runtime flavor
+    async function toBlobURL(url, mime) {
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) throw new Error(`fetch failed ${r.status} ${url}`);
+      const b = await r.arrayBuffer();
+      return URL.createObjectURL(new Blob([b], { type: mime }));
+    }
+
+    // Core files for each runtime flavor
     const CORE_URLS = {
       umd: {
         js  : 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js',
@@ -52,25 +58,30 @@
       }
     };
 
-    async function toBlobURL(url, mime) {
-      const r = await fetch(url, { cache: 'no-store' });
-      if (!r.ok) throw new Error(`fetch failed ${r.status} ${url}`);
-      const b = await r.arrayBuffer();
-      return URL.createObjectURL(new Blob([b], { type: mime }));
-    }
-
-    // Local ESM entry (present in your repo). If you prefer CDN, you can point this to jsDelivr.
+    // Local ESM entry in your repo
     const ESM_INDEX = new URL('./ffmpeg/esm/index.js', location.href).toString(); // exports { FFmpeg }
 
-    let gFFmpeg = null;
+    let gFFmpeg = null, gFlavor = 'umd';
+
+    // FS shim to handle both APIs (UMD legacy vs ESM v0.12)
+    const FS = {
+      async write(ff, path, data){ return ff.FS ? ff.FS('writeFile', path, data) : ff.writeFile(path, data); },
+      async read(ff, path){ return ff.FS ? ff.FS('readFile', path) : ff.readFile(path); },
+      async unlink(ff, path){
+        try {
+          if (ff.FS) ff.FS('unlink', path);
+          else if (ff.deleteFile) await ff.deleteFile(path);
+        } catch {}
+      }
+    };
 
     async function ensureFFmpeg() {
       if (gFFmpeg) return gFFmpeg;
 
       let FFmpegCtor = null;
-      let flavor = 'umd';
+      gFlavor = 'umd';
 
-      // 1) Try the statically-loaded UMD first
+      // Try statically loaded UMD first
       try {
         await waitFor(() => !!(window.FFmpeg && window.FFmpeg.FFmpeg), 20000, 50);
         FFmpegCtor = window.FFmpeg.FFmpeg;
@@ -79,17 +90,16 @@
         console.warn('[FFMPEG] UMD not detected in time, using ESM fallback:', e?.message || e);
       }
 
-      // 2) Fallback to ESM
+      // Fallback to ESM if needed
       if (!FFmpegCtor) {
         const mod = await import(ESM_INDEX);
         FFmpegCtor = mod.FFmpeg;
-        flavor = 'esm';
+        gFlavor = 'esm';
         console.log('[FFMPEG] ESM loaded.');
       }
 
-      // 3) Load matching core for the selected flavor
       const ffmpeg = new FFmpegCtor();
-      const coreSet = CORE_URLS[flavor];
+      const coreSet = CORE_URLS[gFlavor];
       const coreURL = await toBlobURL(coreSet.js, 'text/javascript');
       const wasmURL = await toBlobURL(coreSet.wasm, 'application/wasm');
       await ffmpeg.load({ coreURL, wasmURL });
@@ -145,7 +155,7 @@
     const logBox = el('log');
     function log(...args){ logBox.textContent += args.join(' ') + '\n'; logBox.scrollTop = logBox.scrollHeight; }
 
-    // HH:MM:SS.mmm helper
+    // format helpers
     function toHMS(sec) {
       const s = Math.max(0, +sec);
       const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), r = (s%60);
@@ -186,9 +196,9 @@
     async function extractMetadata(ffmpeg, nameInFS) {
       log('[INFO] Extracting chapters via ffmetadata…');
       try {
-        try { ffmpeg.FS('unlink','meta.txt'); } catch {}
+        await FS.unlink(ffmpeg,'meta.txt');
         await ffmpeg.exec(['-hide_banner','-i', nameInFS, '-f', 'ffmetadata', 'meta.txt']);
-        const meta = ffmpeg.FS('readFile', 'meta.txt');
+        const meta = await FS.read(ffmpeg, 'meta.txt');
         return new TextDecoder().decode(meta);
       } catch (e) {
         log('[ERROR] Could not extract ffmetadata:', e.message||e);
@@ -221,12 +231,12 @@
       const ffmpeg = await ensureFFmpeg();
 
       const inName = 'in.m4b', outName = 'chapter.wav';
-      try { ffmpeg.FS('unlink', inName); } catch {}
-      ffmpeg.FS('writeFile', inName, currentFileBytes);
-      try { ffmpeg.FS('unlink', outName); } catch {}
+      await FS.unlink(ffmpeg, inName);
+      await FS.write(ffmpeg, inName, currentFileBytes);
+      await FS.unlink(ffmpeg, outName);
 
-      ffmpeg.on('log', ({ message }) => { if (message) log(message); });
-      ffmpeg.on('progress', ({ progress, time }) => {
+      ffmpeg.on?.('log', ({ message }) => { if (message) log(message); });
+      ffmpeg.on?.('progress', ({ progress, time }) => {
         const pct = Math.round((progress||0)*100);
         if (!Number.isNaN(pct)) log(`[PROGRESS] ${pct}%  time=${(time||0)/1e6}s`);
       });
@@ -238,9 +248,9 @@
       log('[CMD]', 'ffmpeg ' + args.join(' '));
       try {
         await ffmpeg.exec(args);
-        const wav = ffmpeg.FS('readFile', outName);
+        const wav = await FS.read(ffmpeg, outName); // Uint8Array
         const a = el('dl');
-        a.href = URL.createObjectURL(new Blob([wav.buffer], { type:'audio/wav' }));
+        a.href = URL.createObjectURL(new Blob([wav], { type:'audio/wav' }));
         a.download = (currentFileName.replace(/\.[^.]+$/,'') || 'chapter') + ` — ${String(idx+1).padStart(2,'0')}.wav`;
         a.style.display = 'inline-block'; a.textContent = 'Download WAV';
         log('[OK] Export complete. Click "Download WAV".');
@@ -262,8 +272,8 @@
 
         const buf = await f.arrayBuffer();
         currentFileBytes = new Uint8Array(buf);
-        try { ffmpeg.FS('unlink','in.m4b'); } catch {}
-        ffmpeg.FS('writeFile','in.m4b', currentFileBytes);
+        await FS.unlink(ffmpeg,'in.m4b');
+        await FS.write(ffmpeg,'in.m4b', currentFileBytes);
         log('[INFO] File written to FFmpeg FS as "in.m4b".');
 
         const metaText = await extractMetadata(ffmpeg, 'in.m4b');
