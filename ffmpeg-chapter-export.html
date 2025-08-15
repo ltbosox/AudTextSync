@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>FFmpeg WASM — M4B Chapter to WAV (Local-Only Test)</title>
+  <title>FFmpeg WASM — M4B Chapter to WAV (Local-First, Static UMD)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Load UMD statically so document.currentScript works and the split chunk is resolved -->
+  <script src="./ffmpeg/ffmpeg.min.js"></script>
+  <!-- (Make sure ffmpeg/814.ffmpeg.min.js is present next to ffmpeg.min.js) -->
+
   <style>
     :root{--bg:#0f1216;--panel:#161b21;--fg:#e8eef7;--muted:#9aa6b2;--line:#273044;--accent:#ffd666}
     *{box-sizing:border-box} html,body{height:100%}
@@ -22,21 +27,10 @@
     .inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   </style>
 
-  <!-- FFmpeg loader (local UMD, no workerURL, no async) -->
+  <!-- Loader: prefer local UMD (static tag above). If UMD global never appears, fallback to ESM. -->
   <script>
-    // --- tiny helpers ---
-    async function loadScript(src, timeoutMs = 15000) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        const t = setTimeout(() => { s.remove(); reject(new Error('timeout')); }, timeoutMs);
-        s.onload = () => { clearTimeout(t); resolve(); };
-        s.onerror = () => { clearTimeout(t); reject(new Error('network error')); };
-        s.src = src;
-        // IMPORTANT: do NOT set s.async = true; the UMD uses currentScript for its chunk path
-        document.head.appendChild(s);
-      });
-    }
-    function waitFor(pred, ms = 8000, step = 50) {
+    // Small helpers
+    function waitFor(pred, ms = 12000, step = 50) {
       return new Promise((resolve, reject) => {
         const t0 = performance.now();
         (function poll(){
@@ -46,36 +40,45 @@
         })();
       });
     }
-  
-    // All files are served from your repo's /ffmpeg/ folder (GitHub Pages)
-    const UMD_LOCAL = new URL('./ffmpeg/ffmpeg.min.js', location.href).toString();
-    // NOTE: ffmpeg.min.js lazy-loads a split chunk (e.g. 814.ffmpeg.min.js) from the SAME folder.
-    // Make sure ffmpeg/814.ffmpeg.min.js is present next to ffmpeg.min.js.
-  
-    // For @ffmpeg/core 0.12.10 UMD, there are only two files: ffmpeg-core.js + ffmpeg-core.wasm (no worker).
-    // See official listings/docs. :contentReference[oaicite:1]{index=1}
+
+    // All core files are served locally from your repo
     const CORE_LOCAL = {
       coreURL:   new URL('./ffmpeg/ffmpeg-core.js',   location.href).toString(),
-      wasmURL:   new URL('./ffmpeg/ffmpeg-core.wasm', location.href).toString(),
-      // workerURL is NOT needed for 0.12.10 UMD
+      wasmURL:   new URL('./ffmpeg/ffmpeg-core.wasm', location.href).toString()
+      // NOTE: no workerURL for 0.12.x UMD core
     };
-  
+
+    // ESM fallback location verified on jsDelivr (index.js exists here)
+    const ESM_INDEX = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js'; // exports { FFmpeg }
+    // (Directory listing shows index.js under dist/esm/) :contentReference[oaicite:2]{index=2}
+
     let gFFmpeg = null;
+
     async function ensureFFmpeg() {
       if (gFFmpeg) return gFFmpeg;
-  
-      // Load UMD from local (so the split chunk is found beside it)
-      await loadScript(UMD_LOCAL, 15000);
-  
-      // Wait for the UMD global to appear
-      await waitFor(() => !!(window.FFmpeg && window.FFmpeg.FFmpeg), 8000, 50);
-  
-      const { FFmpeg } = window.FFmpeg;
-      const ffmpeg = new FFmpeg();
-  
-      // Load the core from your local files (no CDNs, no workerURL)
+
+      let FFmpegCtor = null;
+
+      // 1) Prefer the statically-loaded UMD (the <script src="./ffmpeg/ffmpeg.min.js"> above)
+      try {
+        await waitFor(() => !!(window.FFmpeg && window.FFmpeg.FFmpeg), 8000, 50);
+        FFmpegCtor = window.FFmpeg.FFmpeg;
+        console.log('[FFMPEG] UMD detected.');
+      } catch (e) {
+        console.warn('[FFMPEG] UMD not detected in time, using ESM fallback:', e?.message || e);
+      }
+
+      // 2) Fallback to ESM if needed
+      if (!FFmpegCtor) {
+        const mod = await import(ESM_INDEX);
+        FFmpegCtor = mod.FFmpeg;
+        console.log('[FFMPEG] ESM loaded.');
+      }
+
+      // 3) Load the core from your local files
+      const ffmpeg = new FFmpegCtor();
       await ffmpeg.load(CORE_LOCAL);
-  
+
       gFFmpeg = ffmpeg;
       return ffmpeg;
     }
@@ -83,7 +86,7 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>FFmpeg WASM — M4B Chapter to WAV (Local-Only Test)</h1>
+    <h1>FFmpeg WASM — M4B Chapter to WAV (Local-First Test)</h1>
 
     <div class="card">
       <label>1) Choose an .m4b file</label>
@@ -127,7 +130,7 @@
     const logBox = el('log');
     function log(...args){ logBox.textContent += args.join(' ') + '\n'; logBox.scrollTop = logBox.scrollHeight; }
 
-    // HH:MM:SS.mmm for display
+    // HH:MM:SS.mmm helper
     function toHMS(sec) {
       const s = Math.max(0, +sec);
       const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), r = (s%60);
@@ -200,7 +203,7 @@
       const durationSec = (chap.endSec!=null && chap.endSec>chap.startSec) ? (chap.endSec - chap.startSec) : null;
 
       log(`[INFO] Exporting chapter #${idx+1} — "${chap.title}"`);
-      const ffmpeg = await ensureFFmpeg(log);
+      const ffmpeg = await ensureFFmpeg();
 
       const inName = 'in.m4b', outName = 'chapter.wav';
       try { ffmpeg.FS('unlink', inName); } catch {}
@@ -231,7 +234,6 @@
       }
     }
 
-    // Wire up
     el('file').addEventListener('change', async (ev) => {
       const f = ev.target.files?.[0]; if (!f) return;
       el('chapters').innerHTML=''; el('exportBtn').disabled=true; el('dl').style.display='none'; logBox.textContent='';
@@ -240,7 +242,7 @@
       log(`[INFO] File selected — ${f.name} (${f.size.toLocaleString()} bytes)`);
 
       try {
-        const ffmpeg = await ensureFFmpeg(log);
+        const ffmpeg = await ensureFFmpeg();
         log('[OK] FFmpeg ready.');
 
         const buf = await f.arrayBuffer();
