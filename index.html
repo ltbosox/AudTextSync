@@ -35,6 +35,14 @@
     .token{padding:2px 3px;border-radius:6px;cursor:pointer}.token:hover{background:#1e2733}.token.playing{background:var(--accent);color:#000}
     small{color:var(--muted)}.accent{background:var(--accent);color:#000;border-radius:6px;padding:0 5px}
     #log{font:12px/1.3 ui-monospace,Consolas,monospace;white-space:pre-wrap;padding:10px}.ok{color:#baffc1}.warn{color:#ffe9a6}.bad{color:#ffb4b4}
+	/* Keep the log viewport fixed; text scrolls inside */
+	#log{
+	  height: 260px;          /* pick any fixed height you like */
+	  overflow: auto;         /* scrolling happens inside the log box */
+	  border: 1px solid var(--line);
+	  border-radius: 8px;
+	  background: #0f131a;
+	}
     #tbl{width:100%;border-collapse:collapse}#tbl th,#tbl td{border-bottom:1px solid #273044;padding:6px 8px;text-align:left;font-variant-numeric:tabular-nums}
     #tbl th.play,#tbl td.play{width:48px}.playbtn{cursor:pointer;border:1px solid #2b3342;background:#1e2430;border-radius:6px;padding:2px 6px}.playbtn:hover{filter:brightness(1.1)}
     .row{display:flex;gap:10px;align-items:center;padding:10px;border-top:1px solid var(--line);background:#131821}
@@ -384,13 +392,10 @@
     let IS_MOBILE=isMobileUA();
     function activePlayer(){
       const m = el.player, d = el.playerDesktop;
-      // Prefer the one that's actually playing
       if (d && !d.paused && isFinite(d.duration)) return d;
       if (m && !m.paused && isFinite(m.duration)) return m;
-      // Otherwise prefer whichever has a source/duration
       if (d && d.src) return d;
       if (m && m.src) return m;
-      // Fallback to heuristic
       return IS_MOBILE ? m : d;
     }
 
@@ -486,7 +491,7 @@
     el.mSeek?.addEventListener('input',()=>{ const p=activePlayer(); if(!p || !isFinite(p.duration)) return; p.currentTime = (+el.mSeek.value/1000)*p.duration; });
 
     /* Model load watchdog */
-    function modelWatchStart(){MODEL_WATCH.active=true;MODEL_WATCH.canceled=false;MODEL_WATCH.start=Date.now();MODEL_WATCH.lastBeat=Date.now();el.cancelModel&&(el.cancelModel.style.display='inline-flex');MODEL_WATCH.timer&&clearInterval(MODEL_WATCH.timer);MODEL_WATCH.timer=setInterval(()=>{const now=Date.now(),sinceBeat=(now-MODEL_WATCH.lastBeat)/1e3,sinceStart=(now-MODEL_WATCH.start)/1e3;sinceBeat>45&&addLog('warn','Model load appears stalled',{idle_secs:sinceBeat});sinceStart>120&&addLog('warn','Model load unusually long',{elapsed_secs:sinceStart})},5e3)}
+    function modelWatchStart(){MODEL_WATCH.active=true;MODEL_WATCH.canceled=false;MODEL_WATCH.start=Date.now();MODEL_WATCH.lastBeat=Date.now();el.cancelModel&&(el.cancelModel.style.display='inline-flex');MODEL_WATCH.timer&&(clearInterval(MODEL_WATCH.timer),MODEL_WATCH.timer=null);MODEL_WATCH.timer=setInterval(()=>{const now=Date.now(),sinceBeat=(now-MODEL_WATCH.lastBeat)/1e3,sinceStart=(now-MODEL_WATCH.start)/1e3;sinceBeat>45&&addLog('warn','Model load appears stalled',{idle_secs:sinceBeat});sinceStart>120&&addLog('warn','Model load unusually long',{elapsed_secs:sinceStart})},5e3)}
     function modelWatchBeat(msg){MODEL_WATCH.lastBeat=Date.now();msg&&addLog('info','model: '+msg)}
     function modelWatchEnd(){MODEL_WATCH.active=false;MODEL_WATCH.timer&&(clearInterval(MODEL_WATCH.timer),MODEL_WATCH.timer=null);el.cancelModel&&(el.cancelModel.style.display='none')}
     function modelCancel(){MODEL_WATCH.canceled=true;addLog('warn','Model load cancel requested')}
@@ -510,7 +515,8 @@
       }
       for(let i=1;i<out.length;i++){
         if(out[i].start < out[i-1].end + GAP_PAD){
-          out[i].start = Math.min(out[i].start, out[i-1].end + GAP_PAD);
+          // FIX: ensure non-overlap by pushing start forward
+          out[i].start = Math.max(out[i].start, out[i-1].end + GAP_PAD);
         }
       }
       return out;
@@ -546,13 +552,9 @@
       }catch{}
     }
     
-    /* >>>>> Key fix: keep clocks aligned when chapters are used <<<<< */
     function currentTimeAdj(){
       const p = (typeof activePlayer==='function' ? activePlayer() : el.player);
       let t = p ? (p.currentTime||0) : 0;
-    
-      // If your app defines chapter state, shift to chapter-relative time.
-      // These names match the chapter-enabled builds you've shared.
       if (typeof CHAPTER_MODE!=='undefined' && CHAPTER_MODE && Array.isArray(AUDIO_CH)) {
         const ch = AUDIO_CH[typeof CURRENT_AUDIO_CH_INDEX==='number' ? CURRENT_AUDIO_CH_INDEX : 0];
         if (ch && Number.isFinite(ch.start)) t -= ch.start;
@@ -574,7 +576,6 @@
     
     function lerp(a,b,t){ return a+(b-a)*t; }
     
-    /* optional mobile centering: harmless if mobile bits don’t exist */
     function centerMobileToken(idx, progress01){
       if(typeof IS_MOBILE==='undefined' || !IS_MOBILE) return;
       if(!MOB_TOKENS || idx<0 || !MOB_TOKENS[idx]) return;
@@ -613,17 +614,12 @@
     }
     
     function updateHighlightFromPlayer(){
-      // If your build has this helper, keep times fresh on mobile
       if (typeof IS_MOBILE!=='undefined' && IS_MOBILE && typeof setMobileTimes==='function') setMobileTimes();
-    
       if(!PLAY_WORDS.length){ setHighlight(-1); return; }
-    
       const t = currentTimeAdj();
       const idx = findWordIndexAt(t);
       setHighlight(idx);
       adaptiveUpdate(idx);
-    
-      // optional mobile centering (no effect on desktop)
       if (typeof IS_MOBILE!=='undefined' && IS_MOBILE && idx>=0){
         const w=PLAY_WORDS[idx];
         const prog=(t - w.start) / Math.max(1e-6,(w.end - w.start));
@@ -631,7 +627,6 @@
       }
     }
     
-    /* events that drive highlighting */
     ['timeupdate','seeked','ratechange','seeking'].forEach(ev=>{
       if (el.player) el.player.addEventListener(ev,updateHighlightFromPlayer);
       if (el.playerDesktop) el.playerDesktop.addEventListener(ev,updateHighlightFromPlayer);
@@ -669,7 +664,6 @@
       addLog('info','Audio selected',{name:file.name,size:file.size,type:file.type});
       try{
         const url = URL.createObjectURL(file);
-        // Load into BOTH players so whichever is used stays in sync
         if (el.player)        { el.player.src = url;        el.player.load(); }
         if (el.playerDesktop) { el.playerDesktop.src = url; el.playerDesktop.load(); }
         if(IS_MOBILE){ el.mTitle.textContent=file.name || 'Audio' } else { el.audioTitle && (el.audioTitle.textContent=file.name || 'Audio') }
@@ -707,10 +701,35 @@
     if (window.Vosk && Vosk.setWasmPrefix) Vosk.setWasmPrefix("https://unpkg.com/vosk-browser@0.0.8/dist/");
     if (window.Vosk && Vosk.setLogLevel) { Vosk.setLogLevel(0); }
 
-    async function headCheck(url){ try { const r = await fetch(url, { method:"HEAD" }); return { ok:r.ok, status:r.status, len:r.headers.get("content-length"), type:r.headers.get("content-type") }; } catch(e){ return { ok:false, error:String(e) }; }
+    async function headCheck(url){
+      try {
+        const r = await fetch(url, { method:"HEAD" });
+        return { ok:r.ok, status:r.status, len:r.headers.get("content-length"), type:r.headers.get("content-type") };
+      } catch(e){
+        return { ok:false, error:String(e) };
+      }
     }
     function withTimeout(promise, ms, label="operation"){ let t; const timer=new Promise((_,rej)=>t=setTimeout(()=>rej(new Error(label+" timed out")),ms)); return Promise.race([promise.finally(()=>clearTimeout(t)), timer]); }
     function destroyRecognizer(){if(RECOG){try{RECOG.remove&&RECOG.remove()}catch{}RECOG=null}}
+    function createRecognizerWithLogs(model, sr){
+      setStatus('Creating recognizer…');
+      destroyRecognizer();
+      let rec = null;
+      try{
+        rec = model.KaldiRecognizer ? new model.KaldiRecognizer(sr) : new model.Recognizer(sr);
+      }catch(e){
+        addLog('error','Recognizer create failed', String(e));
+        alert('Recognizer create failed — see log');
+        return null;
+      }
+      rec.setWords && rec.setWords(true);
+      const feed =
+        rec.acceptWaveformFloat ? 'acceptWaveformFloat(Float32,sr)' :
+        (rec.acceptWaveform && rec.acceptWaveform.length===2 ? 'acceptWaveform(Int16,sr)' : 'acceptWaveform(Int16)');
+      addLog('info','Recognizer method',{feed});
+      addLog('info','Recognizer ready',{sampleRate:sr});
+      return rec;
+    }
 
     async function ensureModel(){
       if(typeof Vosk==='undefined'){addLog('error','Vosk not loaded');alert('Vosk failed to load');return null}
@@ -779,78 +798,182 @@
     }
 
     async function runChapter(audioChapterIndex, makeActive=true, overrideRef=''){
-      const model=await ensureModel(); if(!model) return;
-      const cache=await ensureDecode();
+	  const model=await ensureModel(); if(!model) return;
+	  const cache=await ensureDecode();
 
-      const idx = Number.isFinite(audioChapterIndex) ? audioChapterIndex : 0;
-      const ch=AUDIO_CH[idx] || {start:0,end:cache.durationSec,title:'Whole file',index:1};
-      const start=ch.start, end=Math.min(ch.end, cache.durationSec);
-      addLog('info','Transcribing chapter', {idx,title:ch.title,start,end});
+	  const idx = Number.isFinite(audioChapterIndex) ? audioChapterIndex : 0;
+	  const ch=AUDIO_CH[idx] || {start:0,end:cache.durationSec,title:'Whole file',index:1};
+	  const start=ch.start, end=Math.min(ch.end, cache.durationSec);
+	  addLog('info','Transcribing chapter', {idx,title:ch.title,start,end});
 
-      const sr=cache.sr, f32=cache.f32.subarray( Math.floor(start*sr), Math.floor(end*sr) );
-      const i16=floatToInt16(f32);
-      setStatus(`Transcribing… ${ch.title}`); setProg(12);
+	  // Slice inputs for this chapter
+	  const sr = cache.sr;
+	  const f32 = cache.f32.subarray(Math.floor(start*sr), Math.floor(end*sr));
+	  const i16 = floatToInt16(f32);
 
-      destroyRecognizer();
-      try{RECOG=model.KaldiRecognizer?new model.KaldiRecognizer(sr):new model.Recognizer(sr)}catch(e){addLog('error','Recognizer create failed',String(e));alert('Recognizer create failed — see log');return}
-      RECOG.setWords&&RECOG.setWords(true);
-      const useFloat=!!RECOG.acceptWaveformFloat;
+	  setStatus(`Transcribing… ${ch.title}`);
+	  setProg(12);
 
-      const words=[];
-      const pullAll=()=>{
-        let pulled=0;
-        if(RECOG.result){
-          for(;;){
-            let r=RECOG.result(); if(typeof r==='string'){ try{ r=JSON.parse(r) }catch{} }
-            const arr=r?.result||[]; if(arr && arr.length){ arr.forEach(x=>words.push(x)); pulled+=arr.length; } else break;
-          }
-        }
-        if(RECOG.finalResult){
-          let fr=RECOG.finalResult(); if(typeof fr==='string'){ try{ fr=JSON.parse(fr) }catch{} }
-          const arr=fr?.result||[]; if(arr && arr.length){ arr.forEach(x=>words.push(x)); pulled+=arr.length; }
-        }
-        return pulled;
-      };
+	  RECOG = createRecognizerWithLogs(model, sr);
+	  if(!RECOG) return;
 
-      const CH=Math.max(1, sr*.5|0); let off=0,n=0;
-      while(off<(useFloat?f32.length:i16.length)){
-        const slice=useFloat?f32.subarray(off,Math.min(f32.length,off+CH)):i16.subarray(off,Math.min(i16.length,off+CH));
-        off+=CH; n++;
-        try{
-          if(useFloat){ RECOG.acceptWaveformFloat(slice,sr); }
-          else{ RECOG.acceptWaveform.length===2 ? RECOG.acceptWaveform(slice,sr) : RECOG.acceptWaveform(slice); }
-        }catch(e){ addLog('error','acceptWaveform failed',String(e)); break; }
-        if(n%8===0){ const denom=useFloat?f32.length:i16.length; setProg(12+Math.min(80,Math.round(off/denom*80))); }
-        await new Promise(r=>setTimeout(r,0));
-      }
-      try{ const tail=sr*1|0; if(useFloat){RECOG.acceptWaveformFloat(new Float32Array(tail),sr)}else{RECOG.acceptWaveform.length===2?RECOG.acceptWaveform(new Int16Array(tail),sr):RECOG.acceptWaveform(new Int16Array(tail))} }catch{}
+	  // === NEW: capture results from the worker/event path ===
+	  const fromEvents = [];
+	  const transcriptPieces = [];
+	  let lastEvt = performance.now();
 
-      for(let k=0;k<3;k++){ await new Promise(r=>setTimeout(r,80)); pullAll(); }
+	  if (RECOG.on) {
+		RECOG.on('result', (m)=>{
+		  lastEvt = performance.now();
+		  let r = m; if (typeof r==='string') { try{ r=JSON.parse(r) }catch{} }
+		  const arr  = r?.result?.result || r?.result || [];
+		  const text = r?.result?.text   || r?.text   || '';
+		  if (text) transcriptPieces.push(text);
+		  if (arr.length){ fromEvents.push(...arr); addLog('info','event result', {words:arr.length}); }
+		});
+		RECOG.on('finalresult', (m)=>{
+		  lastEvt = performance.now();
+		  let r = m; if (typeof r==='string') { try{ r=JSON.parse(r) }catch{} }
+		  const arr  = r?.result?.result || r?.result || [];
+		  const text = r?.result?.text   || r?.text   || '';
+		  if (text) transcriptPieces.push(text);
+		  if (arr.length){ fromEvents.push(...arr); addLog('info','final event', {words:arr.length}); }
+		});
+		RECOG.on('partialresult', (m)=>{
+		  lastEvt = performance.now();                 // <-- add this line
+		  let p = m; if (typeof p==='string') { try{ p=JSON.parse(p) }catch{} }
+		  const t = p?.result?.partial || p?.partial || '';
+		  if (t) addLog('info','partial — ' + t);
+		});
+	  }
 
-      // shift to absolute file time
-      const shifted=words.filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end))
-        .map(w=>({word:String(w.word||'').trim(), start:start + +w.start, end:start + +w.end, conf:+(w.conf??1)}));
+	  const useFloat = !!RECOG.acceptWaveformFloat;
+	  const FEED = useFloat ? f32 : i16;
+	  const CH = Math.max(1, sr * 0.5 | 0); // ~0.5s
+	  let off = 0, nChunks = 0;
 
-      const refTxt = overrideRef || (TEXT_CH[(idx + MAP_OFFSET)]?.text || REF_TEXT || '');
-      LAST_WORDS = shifted;
-      if (refTxt && refTxt.trim()){
-        try{
-          const corrected = alignAndCorrect(LAST_WORDS, refTxt);
-          addLog('info','Align & Correct (chapter)',{orig:LAST_WORDS.length,corrected:corrected.length});
-          LAST_WORDS = corrected; ALIGNED_ONCE=true; refreshAlignButton();
-        }catch(e){ addLog('warn','Chapter align failed', String(e)); }
-      }
+	  // Stream chunks
+	  while (off < FEED.length){
+		const endIdx = Math.min(FEED.length, off + CH);
+		const slice = FEED.subarray(off, endIdx);
+		off = endIdx; nChunks++;
 
-      PLAY_WORDS=normalizeForPlayback(LAST_WORDS); buildHighlightWindows(); render(PLAY_WORDS);
-      setProg(100);
-      setStatus(`<span class="accent">Done</span> ${LAST_WORDS.length} words — ${ch.title}`);
-      updateHighlightFromPlayer();
+		try{
+		  if (useFloat) RECOG.acceptWaveformFloat(slice, sr);
+		  else if (RECOG.acceptWaveform.length === 2) RECOG.acceptWaveform(slice, sr);
+		  else RECOG.acceptWaveform(slice);
+		}catch(e){
+		  addLog('error','acceptWaveform failed', String(e));
+		  break;
+		}
 
-      if(makeActive){
-        CURRENT_AUDIO_CH_INDEX=idx;
-        const p=activePlayer(); try{ p.pause(); }catch{} p.currentTime = ch.start; p.playbackRate = CURRENT_RATE;
-      }
-    }
+		// Only poll partials if we don't have the event path
+		if (!RECOG.on && RECOG.partialResult){
+		  try{
+			let p = RECOG.partialResult();
+			if (typeof p === 'string'){ try{ p = JSON.parse(p) }catch{} }
+			const t = p?.partial || p?.result?.partial || '';
+			if (t) addLog('info', 'partial — ' + t);
+		  }catch{}
+		}
+
+		if (nChunks % 8 === 0){
+		  setProg(12 + Math.min(80, Math.round(off / FEED.length * 80)));
+		}
+		await new Promise(r=>setTimeout(r,0)); // keep UI responsive
+	  }
+
+	  // Tail of silence to flush buffered words
+	  try{
+		const tail = sr * 1 | 0;
+		if (useFloat) RECOG.acceptWaveformFloat(new Float32Array(tail), sr);
+		else if (RECOG.acceptWaveform.length === 2) RECOG.acceptWaveform(new Int16Array(tail), sr);
+		else RECOG.acceptWaveform(new Int16Array(tail));
+		addLog('info','Silence tail fed',{samples:tail});
+	  }catch(e){ addLog('warn','Silence tail failed', String(e)); }
+
+	  // === NEW: robust drain to support both sync and worker modes ===
+	  const drained = [];
+	  const drainSync = ()=>{
+		let pulled = 0;
+		if (RECOG.result){
+		  for(;;){
+			let r = RECOG.result();
+			if (typeof r === 'string'){ try{ r = JSON.parse(r) }catch{} }
+			const arr = r?.result || [];
+			const text = r?.text || '';
+			if (text) transcriptPieces.push(text);
+			if (arr && arr.length){ drained.push(...arr); pulled += arr.length; } else break;
+		  }
+		}
+		if (RECOG.finalResult){
+		  let fr = RECOG.finalResult();
+		  if (typeof fr === 'string'){ try{ fr = JSON.parse(fr) }catch{} }
+		  const arr = fr?.result || [];
+		  const text = fr?.text || '';
+		  if (text) transcriptPieces.push(text);
+		  if (arr && arr.length){ drained.push(...arr); pulled += arr.length; }
+		}
+		return pulled;
+	  };
+
+	  // Initial pull, then wait for "quiet" like the old app
+	  drainSync();
+	  const durSec = FEED.length / sr;
+	  const quietMs = 2500;
+	  const maxTail = Math.min(180000, Math.max(10000, Math.round(durSec * 2500)));
+	  const t0 = performance.now();
+	  for (; performance.now() - t0 < maxTail;) {
+		await new Promise(r=>setTimeout(r,150));
+		const added = drainSync();
+		if (added > 0){ lastEvt = performance.now(); continue; }
+		if (performance.now() - lastEvt > quietMs) break;
+	  }
+	  for (let k=0; k<2; k++){ await new Promise(r=>setTimeout(r,100)); drainSync(); }
+
+	  // Prefer evented words; fall back to sync drained words
+	  const baseWords = (fromEvents.length ? fromEvents : drained);
+
+	  // Shift to absolute file time (so click-to-play hits the right spot)
+	  const shifted = baseWords
+		.filter(w => w && Number.isFinite(+w.start) && Number.isFinite(+w.end))
+		.map(w => ({
+		  word: String(w.word||'').trim(),
+		  start: start + +w.start,
+		  end:   start + +w.end,
+		  conf:  +(w.conf ?? 1)
+		}));
+
+	  addLog('info','Totals', {
+		chunks: nChunks,
+		events: baseWords.length,
+		secs: (FEED.length/sr).toFixed(2)
+	  });
+
+	  const refTxt = overrideRef || (TEXT_CH[(idx + MAP_OFFSET)]?.text || REF_TEXT || '');
+	  LAST_WORDS = shifted;
+
+	  if (refTxt && refTxt.trim()){
+		try{
+		  const corrected = alignAndCorrect(LAST_WORDS, refTxt);
+		  addLog('info','Align & Correct (chapter)',{orig:LAST_WORDS.length,corrected:corrected.length});
+		  LAST_WORDS = corrected; ALIGNED_ONCE=true; refreshAlignButton();
+		}catch(e){ addLog('warn','Chapter align failed', String(e)); }
+	  }
+
+	  PLAY_WORDS = normalizeForPlayback(LAST_WORDS);
+	  buildHighlightWindows();
+	  render(PLAY_WORDS);
+	  setProg(100);
+	  setStatus(`<span class="accent">Done</span> ${LAST_WORDS.length} words — ${ch.title}`);
+	  updateHighlightFromPlayer();
+
+	  if(makeActive){
+		CURRENT_AUDIO_CH_INDEX=idx;
+		const p=activePlayer(); try{ p.pause(); }catch{}
+		p.currentTime = ch.start; p.playbackRate = CURRENT_RATE;
+	  }
+	}
 
     async function run(){
       LOG.length=0; el.log && (el.log.textContent='(log starts here)');
@@ -962,7 +1085,6 @@
     };
     const ESM_INDEX = new URL('./ffmpeg/esm/index.js', location.href).toString(); // exports { FFmpeg }
 
-    // FS shim works with both APIs (UMD legacy vs ESM v0.12)
     const FS = {
       async write(ff, path, data){ return ff.FS ? ff.FS('writeFile', path, data) : ff.writeFile(path, data); },
       async read(ff, path){ return ff.FS ? ff.FS('readFile', path) : ff.readFile(path); },
@@ -1018,13 +1140,11 @@
       }
     }
 
-    // Slice [startSec, endSec] from an .m4b into a 16k mono WAV Blob (FFmpeg WASM)
     async function m4bSliceToWavUsingFFmpeg(file, startSec, endSec){
       const ff = await ensureFFmpeg();
       const inName  = 'in.m4b';
       const outName = 'out.wav';
 
-      // fresh bytes each call (avoid "ArrayBuffer already detached")
       const src = new Uint8Array(await file.arrayBuffer());
       await FS.unlink(ff, inName);
       await FS.write(ff, inName, src);
@@ -1040,7 +1160,7 @@
       addLog('info','ffmpeg exec', { cmd: 'ffmpeg ' + args.join(' ') });
       await ff.exec(args);
 
-      const wav = await FS.read(ff, outName); // Uint8Array
+      const wav = await FS.read(ff, outName);
       try { await FS.unlink(ff, inName); await FS.unlink(ff, outName); } catch {}
       return new Blob([wav], { type:'audio/wav' });
     }
