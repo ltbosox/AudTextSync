@@ -2,14 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>FFmpeg WASM — M4B Chapter to WAV (Test)</title>
+  <title>FFmpeg WASM — M4B Chapter to WAV (Local-Only Test)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root{
-      --bg:#0f1216;--panel:#161b21;--fg:#e8eef7;--muted:#9aa6b2;--line:#273044;--accent:#ffd666;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
+    :root{--bg:#0f1216;--panel:#161b21;--fg:#e8eef7;--muted:#9aa6b2;--line:#273044;--accent:#ffd666}
+    *{box-sizing:border-box} html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif}
     .wrap{max-width:880px;margin:24px auto;padding:16px}
     h1{font-size:18px;margin:0 0 12px}
@@ -23,40 +20,75 @@
     .log{white-space:pre-wrap;background:#0d1219;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:140px;max-height:260px;overflow:auto}
     .hint{color:var(--muted);font-size:12px;margin-top:6px}
     .inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .ok{color:#6ee7a8}
-    .bad{color:#fca5a5}
   </style>
 
-  <!-- Robust FFmpeg UMD loader (works on GitHub Pages) -->
   <script>
-    async function loadScript(src, timeoutMs = 12000) {
+    // ---------- Local-only FFmpeg UMD loader with verbose logging ----------
+    const logEarly = (...a) => console.log('[FFMPEG LOADER]', ...a);
+
+    async function loadScript(src, timeoutMs = 15000) {
+      logEarly('injecting <script> ->', src);
       return new Promise((resolve, reject) => {
         const s = document.createElement('script');
-        const timer = setTimeout(() => { s.remove(); reject(new Error('timeout')); }, timeoutMs);
-        s.onload = () => { clearTimeout(timer); resolve(); };
-        s.onerror = (e) => { clearTimeout(timer); reject(e?.error || new Error('network error')); };
+        const timer = setTimeout(() => {
+          s.remove(); reject(new Error('timeout loading ' + src));
+        }, timeoutMs);
+        s.onload = () => { clearTimeout(timer); logEarly('loaded', src); resolve(); };
+        s.onerror = (e) => { clearTimeout(timer); reject(new Error('network error for ' + src)); };
         s.src = src; s.async = true; document.head.appendChild(s);
       });
     }
-    const FFMPEG_UMD_TRY = [ new URL('./ffmpeg/ffmpeg.min.js', location.href).toString() ];
-    let gFFmpeg = null;
 
-    async function ensureFFmpeg() {
-      if (gFFmpeg) return gFFmpeg;
-      // Load the UMD entry
-      for (const url of FFMPEG_UMD_TRY) {
-        try { await loadScript(url, 12000); if (window.FFmpeg) break; } catch (_) {}
-      }
-      if (!window.FFmpeg) throw new Error('Failed to load @ffmpeg/ffmpeg UMD');
-
-      const { FFmpeg } = window.FFmpeg;
-      const ffmpeg = new FFmpeg();
-      // Load the matching UMD core from cdnjs (worker+wasm friendly on Pages)
-      await ffmpeg.load({
-        coreURL:   'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/ffmpeg-core.js',
-        wasmURL:   'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/ffmpeg-core.wasm',
-        workerURL: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/ffmpeg-core.worker.js',
+    function waitFor(pred, ms = 8000, step = 50) {
+      return new Promise((resolve, reject) => {
+        const t0 = performance.now();
+        (function poll(){
+          if (pred()) return resolve();
+          if (performance.now() - t0 > ms) return reject(new Error('waitFor timed out'));
+          setTimeout(poll, step);
+        })();
       });
+    }
+
+    // LOCAL paths (served from this repo via GitHub Pages)
+    const UMD_LOCAL = new URL('./ffmpeg/ffmpeg.min.js', location.href).toString();
+    // NOTE: ffmpeg.min.js will lazy-load ./814.ffmpeg.min.js from the same folder. It must exist. :contentReference[oaicite:2]{index=2}
+
+    const CORE_LOCAL = {
+      coreURL:   new URL('./ffmpeg/ffmpeg-core.js', location.href).toString(),
+      wasmURL:   new URL('./ffmpeg/ffmpeg-core.wasm', location.href).toString(),
+      workerURL: new URL('./ffmpeg/ffmpeg-core.worker.js', location.href).toString(),
+    };
+
+    let gFFmpeg = null;
+    async function ensureFFmpeg(log) {
+      if (gFFmpeg) return gFFmpeg;
+
+      // 1) Load the UMD entry from LOCAL only
+      try {
+        await loadScript(UMD_LOCAL, 15000);
+      } catch (e) {
+        log('[ERROR] UMD script failed to load:', e.message);
+        throw new Error('Failed to load @ffmpeg/ffmpeg UMD (local)');
+      }
+
+      // 2) Give the split chunk a moment to attach window.FFmpeg
+      try {
+        await waitFor(() => !!window.FFmpeg, 8000, 50);
+      } catch {
+        log('[ERROR] window.FFmpeg not found after loading UMD. Is ffmpeg/814.ffmpeg.min.js present?');
+        throw new Error('Failed to initialize @ffmpeg/ffmpeg UMD (chunk missing?)');
+      }
+
+      const { FFmpeg } = window.FFmpeg || {};
+      if (!FFmpeg) throw new Error('UMD loaded but FFmpeg class is missing');
+
+      // 3) Load the core from LOCAL files (no CDN)
+      const ffmpeg = new FFmpeg();
+      log('[INFO] Loading ffmpeg-core from local files…');
+      await ffmpeg.load(CORE_LOCAL);
+      log('[OK] Core loaded (local).');
+
       gFFmpeg = ffmpeg;
       return ffmpeg;
     }
@@ -64,12 +96,12 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>FFmpeg WASM — M4B Chapter to WAV (Test Harness)</h1>
+    <h1>FFmpeg WASM — M4B Chapter to WAV (Local-Only Test)</h1>
 
     <div class="card">
       <label>1) Choose an .m4b file</label>
       <input id="file" type="file" accept=".m4b,audio/m4b,audio/mp4,audio/x-m4b,audio/aac,audio/mp4a-latm" />
-      <div class="hint">Large files will be read into memory for testing. This page doesn’t upload anything.</div>
+      <div class="hint">Stays in your browser; no uploads.</div>
     </div>
 
     <div class="card">
@@ -77,7 +109,7 @@
         <div>
           <label>2) Chapters (from ffmetadata)</label>
           <select id="chapters" size="12"></select>
-          <div class="hint">If nothing shows up, the file may not contain chapters readable via ffmetadata.</div>
+          <div class="hint">If nothing appears, the file may not expose chapters via ffmetadata.</div>
         </div>
         <div>
           <label>Export settings</label>
@@ -93,7 +125,6 @@
             <button id="exportBtn" disabled>3) Export selected chapter as WAV</button>
             <a id="dl" style="display:none" download="chapter.wav">Download WAV</a>
           </div>
-          <div class="hint">After export completes, a download link will appear.</div>
         </div>
       </div>
     </div>
@@ -109,200 +140,136 @@
     const logBox = el('log');
     function log(...args){ logBox.textContent += args.join(' ') + '\n'; logBox.scrollTop = logBox.scrollHeight; }
 
-    // Utility: HH:MM:SS.mmm <-> seconds
+    // HH:MM:SS.mmm for display
     function toHMS(sec) {
       const s = Math.max(0, +sec);
-      const h = Math.floor(s/3600);
-      const m = Math.floor((s%3600)/60);
-      const r = (s%60);
-      const mm = String(m).padStart(2,'0');
-      const ss = String(Math.floor(r)).padStart(2,'0');
+      const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), r = (s%60);
+      const mm = String(m).padStart(2,'0'), ss = String(Math.floor(r)).padStart(2,'0');
       const ms = String(Math.round((r - Math.floor(r))*1000)).padStart(3,'0');
       return (h>0? (String(h).padStart(2,'0')+':') : '') + mm + ':' + ss + (ms!=='000'? '.'+ms : '');
     }
 
     function parseFfmetadata(text) {
-      // Expects FFMETADATA1 format. We only extract [CHAPTER] sections.
-      // TIMEBASE=N/D, START, END, title=...
       const lines = text.split(/\r?\n/);
-      const chapters = [];
+      const out = [];
       let cur = null, tbNum = 1, tbDen = 1000;
       const toSec = (ticks) => (ticks * (tbNum / tbDen));
-
       for (let raw of lines) {
         const line = raw.trim();
         if (!line || line.startsWith(';')) continue;
-        if (line === '[CHAPTER]') {
-          if (cur) chapters.push(cur);
-          cur = { title: '', startSec: 0, endSec: null };
-          tbNum = 1; tbDen = 1000; // reset to common default unless overridden
-        } else if (line.startsWith('TIMEBASE=')) {
-          const v = line.slice(9).split('/');
-          tbNum = parseInt(v[0]||'1',10);
-          tbDen = parseInt(v[1]||'1000',10) || 1;
-        } else if (line.startsWith('START=')) {
-          const ticks = parseInt(line.slice(6),10)||0;
-          if (cur) cur.startSec = toSec(ticks);
-        } else if (line.startsWith('END=')) {
-          const ticks = parseInt(line.slice(4),10)||0;
-          if (cur) cur.endSec = toSec(ticks);
-        } else if (line.startsWith('title=')) {
-          if (cur) cur.title = line.slice(6);
-        }
+        if (line === '[CHAPTER]') { if (cur) out.push(cur); cur = { title:'', startSec:0, endSec:null }; tbNum=1; tbDen=1000; }
+        else if (line.startsWith('TIMEBASE=')) { const v=line.slice(9).split('/'); tbNum=+v[0]||1; tbDen=+v[1]||1000; }
+        else if (line.startsWith('START=')) { if (cur) cur.startSec = toSec(parseInt(line.slice(6),10)||0); }
+        else if (line.startsWith('END=')) { if (cur) cur.endSec = toSec(parseInt(line.slice(4),10)||0); }
+        else if (line.startsWith('title=')) { if (cur) cur.title = line.slice(6); }
       }
-      if (cur) chapters.push(cur);
-
-      // Clean up: ensure non-decreasing, round ms to 3 decimals
-      chapters.forEach((c,i) => {
-        if (c.endSec!=null && c.endSec < c.startSec) c.endSec = c.startSec;
-        c.startSec = Math.max(0, +c.startSec);
-        if (c.endSec!=null) c.endSec = Math.max(c.startSec, +c.endSec);
-        if (!c.title) c.title = `Chapter ${String(i+1).padStart(2,'0')}`;
-      });
-      return chapters;
+      if (cur) out.push(cur);
+      out.forEach((c,i)=>{ if (c.endSec!=null && c.endSec<c.startSec) c.endSec=c.startSec; if(!c.title) c.title=`Chapter ${String(i+1).padStart(2,'0')}`;});
+      return out;
     }
 
-    let currentFileBytes = null;
-    let currentFileName = '';
-    let chapters = [];
+    function secondsToFfmpegTime(sec) {
+      const s = Math.max(0, +sec);
+      const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), r = s - (h*3600 + m*60);
+      const hh=String(h).padStart(2,'0'), mm=String(m).padStart(2,'0'), ss=String(Math.floor(r)).padStart(2,'0');
+      const ms=String(Math.round((r - Math.floor(r))*1000)).padStart(3,'0');
+      return `${hh}:${mm}:${ss}.${ms}`;
+    }
+
+    let currentFileBytes = null, currentFileName = '', chapters = [];
 
     async function extractMetadata(ffmpeg, nameInFS) {
-      // Create ffmetadata file from input
       log('[INFO] Extracting chapters via ffmetadata…');
       try {
-        // cleanup old meta if any
-        try { ffmpeg.FS('unlink', 'meta.txt'); } catch {}
+        try { ffmpeg.FS('unlink','meta.txt'); } catch {}
         await ffmpeg.exec(['-hide_banner','-i', nameInFS, '-f', 'ffmetadata', 'meta.txt']);
         const meta = ffmpeg.FS('readFile', 'meta.txt');
-        const text = new TextDecoder().decode(meta);
-        return text;
+        return new TextDecoder().decode(meta);
       } catch (e) {
-        log('[ERROR] Could not extract ffmetadata:', e.message || e);
+        log('[ERROR] Could not extract ffmetadata:', e.message||e);
         return '';
       }
     }
 
-    function populateChapterList(chapters) {
-      const sel = el('chapters');
-      sel.innerHTML = '';
-      chapters.forEach((c, idx) => {
+    function populateChapterList(list) {
+      const sel = el('chapters'); sel.innerHTML = '';
+      list.forEach((c, idx) => {
+        const opt = document.createElement('option');
         const start = toHMS(c.startSec);
         const end = (c.endSec!=null ? toHMS(c.endSec) : 'end');
-        const opt = document.createElement('option');
         opt.value = String(idx);
         opt.textContent = `${String(idx+1).padStart(2,'0')} — ${c.title}  (${start} → ${end})`;
         sel.appendChild(opt);
       });
-      el('exportBtn').disabled = chapters.length === 0;
-    }
-
-    function secondsToFfmpegTime(sec) {
-      // HH:MM:SS.mmm (keep 3 decimals)
-      const s = Math.max(0, +sec);
-      const h = Math.floor(s/3600);
-      const m = Math.floor((s%3600)/60);
-      const r = s - (h*3600 + m*60);
-      const hh = String(h).padStart(2,'0');
-      const mm = String(m).padStart(2,'0');
-      const ss = String(Math.floor(r)).padStart(2,'0');
-      const ms = String(Math.round((r - Math.floor(r))*1000)).padStart(3,'0');
-      return `${hh}:${mm}:${ss}.${ms}`;
+      el('exportBtn').disabled = !list.length;
     }
 
     async function exportChapter() {
-      const sel = el('chapters');
-      const idx = parseInt(sel.value,10);
+      const sel = el('chapters'); const idx = parseInt(sel.value,10);
       if (Number.isNaN(idx)) return;
-
       const sr = String(el('sr').value || '16000');
       const chap = chapters[idx];
       const start = secondsToFfmpegTime(chap.startSec);
-      const hasEnd = (chap.endSec != null && chap.endSec > chap.startSec);
-      const durationSec = hasEnd ? (chap.endSec - chap.startSec) : null;
+      const durationSec = (chap.endSec!=null && chap.endSec>chap.startSec) ? (chap.endSec - chap.startSec) : null;
 
       log(`[INFO] Exporting chapter #${idx+1} — "${chap.title}"`);
-      const ffmpeg = await ensureFFmpeg();
+      const ffmpeg = await ensureFFmpeg(log);
 
-      // Write input again (idempotent OK), then run slice
-      const inName = 'in.m4b';
+      const inName = 'in.m4b', outName = 'chapter.wav';
       try { ffmpeg.FS('unlink', inName); } catch {}
       ffmpeg.FS('writeFile', inName, currentFileBytes);
-
-      // Clean previous output
-      const outName = 'chapter.wav';
       try { ffmpeg.FS('unlink', outName); } catch {}
 
-      // Hook logs/progress
       ffmpeg.on('log', ({ message }) => { if (message) log(message); });
       ffmpeg.on('progress', ({ progress, time }) => {
-        const pct = Math.round((progress || 0)*100);
-        if (!Number.isNaN(pct)) log(`[PROGRESS] ${pct}%  time=${toHMS((time||0)/1000000)}`);
+        const pct = Math.round((progress||0)*100);
+        if (!Number.isNaN(pct)) log(`[PROGRESS] ${pct}%  time=${(time||0)/1e6}s`);
       });
 
-      // Build args: fast seek with -ss BEFORE -i, then limit with -t if we know duration
-      const args = ['-hide_banner', '-ss', start, '-i', inName];
-      if (durationSec != null) {
-        args.push('-t', String(durationSec));
-      }
-      args.push(
-        '-vn', '-ac', '1', '-ar', sr, '-c:a', 'pcm_s16le', outName
-      );
+      const args = ['-hide_banner','-ss', start, '-i', inName];
+      if (durationSec!=null) args.push('-t', String(durationSec));
+      args.push('-vn','-ac','1','-ar', sr,'-c:a','pcm_s16le', outName);
 
       log('[CMD]', 'ffmpeg ' + args.join(' '));
       try {
         await ffmpeg.exec(args);
         const wav = ffmpeg.FS('readFile', outName);
-        const blob = new Blob([wav.buffer], { type: 'audio/wav' });
-        const url = URL.createObjectURL(blob);
         const a = el('dl');
-        a.href = url;
+        a.href = URL.createObjectURL(new Blob([wav.buffer], { type:'audio/wav' }));
         a.download = (currentFileName.replace(/\.[^.]+$/,'') || 'chapter') + ` — ${String(idx+1).padStart(2,'0')}.wav`;
-        a.style.display = 'inline-block';
-        a.textContent = 'Download WAV';
+        a.style.display = 'inline-block'; a.textContent = 'Download WAV';
         log('[OK] Export complete. Click "Download WAV".');
       } catch (e) {
-        log('[ERROR] Export failed:', e.message || e);
+        log('[ERROR] Export failed:', e.message||e);
       }
     }
 
-    // Wire up UI
+    // Wire up
     el('file').addEventListener('change', async (ev) => {
-      const f = ev.target.files?.[0];
-      if (!f) return;
-      el('chapters').innerHTML = '';
-      el('exportBtn').disabled = true;
-      el('dl').style.display = 'none';
-      logBox.textContent = '';
+      const f = ev.target.files?.[0]; if (!f) return;
+      el('chapters').innerHTML=''; el('exportBtn').disabled=true; el('dl').style.display='none'; logBox.textContent='';
 
       currentFileName = f.name;
       log(`[INFO] File selected — ${f.name} (${f.size.toLocaleString()} bytes)`);
 
       try {
-        const ffmpeg = await ensureFFmpeg();
-        log('[OK] FFmpeg loaded.');
+        const ffmpeg = await ensureFFmpeg(log);
+        log('[OK] FFmpeg ready.');
 
-        // Load file into memory and FS
         const buf = await f.arrayBuffer();
         currentFileBytes = new Uint8Array(buf);
-        try { ffmpeg.FS('unlink', 'in.m4b'); } catch {}
-        ffmpeg.FS('writeFile', 'in.m4b', currentFileBytes);
+        try { ffmpeg.FS('unlink','in.m4b'); } catch {}
+        ffmpeg.FS('writeFile','in.m4b', currentFileBytes);
         log('[INFO] File written to FFmpeg FS as "in.m4b".');
 
-        // Extract chapters via ffmetadata
-        const text = await extractMetadata(ffmpeg, 'in.m4b');
-        if (!text) {
-          log('[WARN] ffmetadata empty. No chapters found or unsupported container.');
-          return;
-        }
-        chapters = parseFfmetadata(text);
-        if (!chapters.length) {
-          log('[WARN] No [CHAPTER] entries in ffmetadata. The file may not have chapters.');
-          return;
-        }
+        const metaText = await extractMetadata(ffmpeg, 'in.m4b');
+        if (!metaText) { log('[WARN] ffmetadata empty.'); return; }
+        chapters = parseFfmetadata(metaText);
+        if (!chapters.length) { log('[WARN] No [CHAPTER] entries in ffmetadata.'); return; }
         log(`[OK] Found ${chapters.length} chapters.`);
         populateChapterList(chapters);
       } catch (e) {
-        log('[ERROR] Setup failed:', e.message || e);
+        log('[ERROR] Setup failed:', e.message||e);
       }
     });
 
