@@ -167,7 +167,11 @@
 
   <!-- ===== DESKTOP UI ===== -->
   <header>
-    <div class="topbar"><div id="audioTitle" class="title">No audio loaded</div></div>
+    <div class="topbar">
+      <div id="audioTitle" class="title">No audio loaded</div>
+      <!-- NEW: open drawer on desktop -->
+      <button id="openDrawerDesktop" class="xbtn" aria-label="Open menu">Menu</button>
+    </div>
 
     <div id="controlShelf">
       <div class="field audio">
@@ -240,6 +244,15 @@
       </div>
 
       <div class="sec" id="secActions"><div class="sec-title">Actions</div></div>
+
+      <!-- NEW: Mobile-visible log inside the drawer -->
+      <div class="sec" id="secLog">
+        <div class="sec-title">Log</div>
+        <div id="mLog"
+             style="font:12px/1.3 ui-monospace,Consolas,monospace;white-space:pre-wrap;max-height:160px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;background:#0f131a;">
+        </div>
+      </div>
+
       <div class="sec" id="secSettings"><div class="sec-title">Settings</div></div>
     </div>
   </aside>
@@ -282,6 +295,13 @@
         d.textContent='[JS ERROR] '+(e.message||e.error||'unknown');
         log.appendChild(d);
       }
+      const mob=document.getElementById('mLog');
+      if (mob){
+        const d2=document.createElement('div');
+        d2.className='bad';
+        d2.textContent='[JS ERROR] '+(e.message||e.error||'unknown');
+        mob.appendChild(d2);
+      }
       console.error(e);
     });
 
@@ -306,6 +326,8 @@
       audioChSel:$("audioChSel"), textChSel:$("textChSel"), audioChMeta:$("audioChMeta"), textChMeta:$("textChMeta"),
       mapAudioIdx:$("mapAudioIdx"), mapTextIdx:$("mapTextIdx"), applyMap:$("applyMap"), mapInfo:$("mapInfo"),
       startChapterMode:$("startChapterMode"), transcribeThisChapter:$("transcribeThisChapter"), exportWav:$("exportWav"),
+      sliceReplaceWav:$("sliceReplaceWav"),
+      openDrawerDesktop:$("openDrawerDesktop"),
       player:$("player")
     };
 
@@ -347,6 +369,9 @@
     function addLog(l,m,meta){
       const line=`[${ts()}] ${l.toUpperCase()}: ${m}${meta?` — ${safe(meta)}`:''}`;LOG.push(line);
       if(el.log){const d=document.createElement('div');d.textContent=line;d.className=l==='error'?'bad':l==='warn'?'warn':'ok';el.log.append(d);el.log.scrollTop=el.log.scrollHeight;}
+      // Mirror to mobile drawer log
+      const mob=document.getElementById('mLog');
+      if(mob){const d2=document.createElement('div');d2.textContent=line;d2.className=l==='error'?'bad':l==='warn'?'warn':'ok';mob.append(d2);mob.scrollTop=mob.scrollHeight;while(mob.childElementCount>200) mob.firstChild.remove();}
       console[l==='error'?'error':l==='warn'?'warn':'log'](line,meta||'')
     }
     function setStatus(s){ if(el.status) el.status.innerHTML=`<small>${s}</small>`; addLog('info',s) }
@@ -358,6 +383,7 @@
       else { el.drawer.classList.remove('open'); el.overlay.hidden=true; el.drawer.setAttribute('aria-hidden','true'); }
     }
     el.mMenu?.addEventListener('click',()=>setDrawer(true));
+    el.openDrawerDesktop?.addEventListener('click',()=>setDrawer(true));
     el.closeDrawer?.addEventListener('click',()=>setDrawer(false));
     el.overlay?.addEventListener('click',()=>setDrawer(false));
 
@@ -700,10 +726,10 @@
 
     async function run(){
       LOG.length=0; el.log && (el.log.textContent='(log starts here)');
+      const mob=document.getElementById('mLog'); if(mob) mob.textContent='';
       el.text && (el.text.textContent='(no transcript yet)'); el.tb && (el.tb.innerHTML='');
       el.mText && (el.mText.textContent='(no transcript yet)'); setProg(0);
       if(!AUDIO_FILE){alert('Choose an audio file (hamburger ▶ Files).');setDrawer(true);return}
-      // use current selection if any
       const idx = getSelectedAudioIndex();
       const textIdx = idx + MAP_OFFSET;
       const refTxt = TEXT_CH[textIdx]?.text || '';
@@ -781,14 +807,14 @@
 
     /* ===== ffmpeg.wasm fallback for .m4b slicing ===== */
     let __ffmpeg = null, __ffmpegLoading = null;
-    
+
     async function ensureFFmpeg(){
       if (__ffmpeg) return __ffmpeg;
       if (__ffmpegLoading) return __ffmpegLoading;
       if (!window.FFmpeg) throw new Error('FFmpeg script not loaded');
-      const { createFFmpeg, fetchFile } = FFmpeg;
+      const { createFFmpeg } = FFmpeg;
       const ff = createFFmpeg({
-        log: false, // flip to true for debugging
+        log: false,
         corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js'
       });
       __ffmpegLoading = (async()=>{
@@ -800,18 +826,18 @@
       __ffmpeg = await __ffmpegLoading;
       return __ffmpeg;
     }
-    
+
     // Slice [startSec, endSec] from an .m4b into a 16k mono WAV blob
     async function m4bSliceToWavUsingFFmpeg(file, startSec, endSec){
       const ff = await ensureFFmpeg();
       const inName  = 'in.m4b';
       const outName = 'out.wav';
-      // mount input
       ff.FS('writeFile', inName, await FFmpeg.fetchFile(file));
-      // Build args: precise trim, 16k mono, PCM16
+      const ss = Math.max(0, startSec || 0);
+      const useTo = Number.isFinite(endSec) && (endSec > ss + 0.02); // avoid -to 0 & zero-length
       const args = [
-        '-ss', String(Math.max(0, startSec||0)),
-        ...(Number.isFinite(endSec) ? ['-to', String(Math.max(0, endSec||0))] : []),
+        '-ss', String(ss),
+        ...(useTo ? ['-to', String(endSec)] : []),
         '-i', inName,
         '-ac', '1',
         '-ar', '16000',
@@ -820,12 +846,11 @@
       ];
       addLog('info','ffmpeg slice', { args: args.join(' ') });
       await ff.run(...args);
-      const data = ff.FS('readFile', outName); // Uint8Array
-      // Optional cleanup
+      const data = ff.FS('readFile', outName);
       try{ ff.FS('unlink', inName); ff.FS('unlink', outName); }catch{}
       return new Blob([data.buffer], { type: 'audio/wav' });
     }
-    
+
     /* ===== Chapters UI helpers ===== */
     function getSelectedAudioIndex(){
       let idx = Number.isFinite(+el.audioChSel.value) ? (+el.audioChSel.value|0) : 0;
@@ -838,7 +863,6 @@
       if(!AUDIO_CH.length){el.audioChMeta.textContent='(no audio chapters)'; return;}
       AUDIO_CH.forEach((c,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${(i+1).toString().padStart(3,'0')}  ${c.title}  (${fmt(c.start).slice(0,5)}–${fmt(c.end).slice(0,5)})`; sel.appendChild(o)});
       el.audioChMeta.textContent=`${AUDIO_CH.length} audio chapters`;
-      // ✅ make sure a chapter is actually selected (fixes “buttons don’t work”)
       sel.value = String(CURRENT_AUDIO_CH_INDEX);
       if(sel.selectedIndex===-1) sel.selectedIndex = 0;
       el.mapAudioIdx.value = String(getSelectedAudioIndex());
@@ -864,7 +888,6 @@
     el.startChapterMode?.addEventListener('click',()=>{
       if(!AUDIO_CH.length){ alert('No audio chapters loaded'); return; }
       CHAPTER_MODE=true;
-      // if nothing selected, pick first
       if(el.audioChSel.selectedIndex===-1) el.audioChSel.selectedIndex=0;
       CURRENT_AUDIO_CH_INDEX = getSelectedAudioIndex();
       const p=activePlayer();
@@ -877,7 +900,6 @@
 
     el.transcribeThisChapter?.addEventListener('click',()=>{
       if(!AUDIO_CH.length){ addLog('warn','No audio chapters to transcribe'); alert('Load an .m4b with chapters first.'); return; }
-      // if user never clicked the list, ensure we select the first by default
       if(el.audioChSel.selectedIndex===-1) el.audioChSel.selectedIndex=0;
       const idx = getSelectedAudioIndex();
       CURRENT_AUDIO_CH_INDEX=idx;
@@ -964,7 +986,6 @@
         else if(co64){ let oOff=co64.start+co64.header; oOff+=4; const oCount=dv.getUint32(oOff); oOff+=4; for(let i=0;i<oCount;i++){ const hi=dv.getUint32(oOff+i*8),lo=dv.getUint32(oOff+i*8+4); offs.push(Number((BigInt(hi)<<32n)+BigInt(lo))); } }
         else continue;
 
-        // sample offsets
         const chunkSampleCounts = Array(offs.length).fill(0);
         for (let i=0;i<stscEntries.length;i++){
           const first=stscEntries[i][0]-1;
@@ -1052,7 +1073,6 @@
       }
       if(!atts.length) return {entries:[],debug:'no candidates'};
 
-      // choose best unit
       let bestUnit="us", bestScale=1/1e6, bestCount=-1;
       for(const [uname,scale] of units){
         let c=0;
@@ -1106,7 +1126,6 @@
         const dur=getDurationSeconds(dv,root);
         if(dur) addLog('info',`Duration (mvhd): ${fmt(dur)} (${dur.toFixed(3)} s)`);
 
-        // Prefer QuickTime text-track chapters
         const textRes=parseTextTrack(dv,root);
         if(textRes.entries.length){
           addLog('info',`Found QuickTime text-track chapters. ${textRes.debug}`);
@@ -1115,7 +1134,6 @@
           return;
         }
 
-        // Fallback to Nero chpl if present
         const udta=findPath(root,["moov","udta"]);
         const chpl=udta?.children?.find(b=>b.type==='chpl');
         if(chpl){
@@ -1126,7 +1144,6 @@
           return;
         }
 
-        // Last resort: single chapter using duration
         addLog('warn','No chapters found; using single chapter');
         AUDIO_CH = [{title:file.name,start:0,end:dur||999999,index:1}];
         populateAudioChapterUI();
@@ -1137,7 +1154,7 @@
       }
     }
 
-    /* ===== EPUB TOC/chapters (OPF/NCX/NAV) using JSZip + DOMParser ===== */
+    /* ===== EPUB TOC/chapters ===== */
     async function parseEpubChapters(file){
       addLog('info','Parsing EPUB container…');
       const zip = await JSZip.loadAsync(file);
@@ -1224,22 +1241,20 @@
     /* ===== Chapter → WAV helpers (16 kHz mono, WAV container) ===== */
     function safeFileStem(s){ return String(s||'audio').replace(/[^\w\-]+/g,'_').slice(0,80) }
     function fmtBytes(n){ if(!Number.isFinite(n)) return '—'; const u=['B','KB','MB','GB']; let i=0; while(n>=1024&&i<u.length-1){n/=1024;i++} return n.toFixed(1)+' '+u[i] }
-    
+
     async function sliceCurrentToWavBlob(){
       const isM4B = AUDIO_FILE && /\.m4b$/i.test(AUDIO_FILE.name||'');
       const idx = getSelectedAudioIndex();
-      const ch  = AUDIO_CH[idx] || { title:'chapter', start:0, end:(DECODE_CACHE?.durationSec||0) };
-    
+      const fallbackDur = DECODE_CACHE?.durationSec || 0;
+      const ch  = AUDIO_CH[idx] || { title:'chapter', start:0, end:fallbackDur };
+
       if (isM4B){
-        // Use ffmpeg for reliability on m4b
         const blob = await m4bSliceToWavUsingFFmpeg(AUDIO_FILE, ch.start, ch.end);
         const name = `${safeFileStem(ch.title || AUDIO_FILE.name)}.wav`;
-        // We still want to know the actual duration; set approximate if needed
         const sr = 16000;
-        return { blob, name, sr, samples: Math.round((ch.end-ch.start)*sr), dur: (ch.end-ch.start) };
+        return { blob, name, sr, samples: Math.max(1, Math.round((ch.end-ch.start)*sr)), dur: Math.max(0, ch.end-ch.start) };
       }
-    
-      // Non-m4b path: use your fast in-memory decoder/resampler
+
       const cache = await ensureDecode();
       const sr  = cache.sr;
       const s0  = Math.floor(ch.start * sr);
@@ -1251,37 +1266,29 @@
       const name = `${stem}.wav`;
       return { blob: wav, name, sr, samples: i16.length, dur: (i16.length/sr) };
     }
-    
-    /* Slice current chapter to WAV and make it the active audio for playback/transcription */
+
     async function sliceReplaceWithWav(){
       try{
         setStatus('Slicing current chapter to WAV…');
         const { blob, name, sr, samples, dur } = await sliceCurrentToWavBlob();
-    
-        // Turn blob into a File so name/type behave like a picked file
         const wavFile = new File([blob], name, { type: 'audio/wav' });
-    
-        // Swap it in as the active audio
         AUDIO_FILE = wavFile;
-        DECODE_CACHE = null;     // clear decode cache so ensureDecode() re-decodes this WAV
-        CHAPTER_MODE = false;    // we’re now working with a single WAV
+        DECODE_CACHE = null;
+        CHAPTER_MODE = false;
         AUDIO_CH = [{ title: name, start: 0, end: dur, index: 1 }];
         CURRENT_AUDIO_CH_INDEX = 0;
         populateAudioChapterUI();
-    
-        // Point both players to the new WAV
+
         const url = URL.createObjectURL(wavFile);
         el.player && (el.player.src = url, el.player.load());
         el.playerDesktop && (el.playerDesktop.src = url, el.playerDesktop.load());
-    
-        // Titles
+
         if (IS_MOBILE) { el.mTitle.textContent = name; } else { el.audioTitle && (el.audioTitle.textContent = name); }
-    
-        // Meta & log
+
         const meta = `WAV • mono ${sr} Hz • ${fmtBytes(blob.size)} • ${fmt(dur).slice(0,5)}`;
         const infoEl = document.getElementById('sliceMeta');
         if (infoEl) infoEl.textContent = meta;
-    
+
         addLog('info','Slice → Use WAV complete', { name, sr, samples, bytes: blob.size, seconds: dur.toFixed(3) });
         setStatus(`<span class="accent">Ready</span> ${name} — use “Transcribe” as usual`);
       }catch(e){
@@ -1289,8 +1296,7 @@
         alert('Slice failed — see Log for details.');
       }
     }
-    
-    /* ===== Export current chapter as WAV (PCM16) ===== */
+
     function writeWavPCM16(samplesI16, sampleRate){
       const numChannels=1, bitsPerSample=16;
       const blockAlign=numChannels*bitsPerSample/8;
@@ -1300,7 +1306,7 @@
       const dv=new DataView(buf);
       let p=0;
       function w4(s){for(let i=0;i<4;i++) dv.setUint8(p++,s.charCodeAt(i));}
-      function w2(v){dv.setUint16(p,true); p+=2;}
+      function w2(v){dv.setUint16(p,v,true); p+=2;}
       function w4u(v){dv.setUint32(p,v,true); p+=4;}
       w4('RIFF'); w4u(36+dataSize); w4('WAVE');
       w4('fmt '); w4u(16); w2(1); w2(numChannels); w4u(sampleRate); w4u(byteRate); w2(blockAlign); w2(bitsPerSample);
@@ -1315,7 +1321,7 @@
         const isM4B = AUDIO_FILE && /\.m4b$/i.test(AUDIO_FILE.name||'');
         const idx = getSelectedAudioIndex();
         const ch  = AUDIO_CH[idx] || {start:0,end:(DECODE_CACHE?.durationSec||0),title:'chapter'};
-    
+
         let blob, sr, bytes;
         if (isM4B){
           setStatus('Exporting WAV via ffmpeg…');
@@ -1331,13 +1337,13 @@
           sr = cache.sr;
           bytes = 44 + i16.length*2;
         }
-    
+
         const a=document.createElement('a');
         const safeTitle=(ch.title||'chapter').replace(/[^\w\-]+/g,'_').slice(0,80);
         a.href=URL.createObjectURL(blob);
         a.download=`${safeTitle}.wav`;
         a.click();
-    
+
         addLog('info','Exported WAV',{ sampleRate:sr, bytes, chapter: { start: ch.start, end: ch.end } });
         setStatus(`<span class="accent">Exported</span> ${safeTitle}.wav`);
       }catch(e){
@@ -1377,6 +1383,9 @@
 
     // keep times updating
     setInterval(()=>{ if(IS_MOBILE) setMobileTimes(); }, 250);
+
+    // Optional: open the drawer by default on desktop so controls are obvious
+    if (!IS_MOBILE) setTimeout(() => setDrawer(true), 0);
   </script>
 </body>
 </html>
