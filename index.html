@@ -7,14 +7,16 @@
   <style>
     :root{
       --bg:#111418;--panel:#161b21;--fg:#e8eef7;--muted:#9aa6b2;--line:#273044;--accent:#ffd666;
-      --mobile-max:420px;
-      --m-lines:3;
-      --m-lh:1.6;
+      /* MOBILE TUNABLES */
+      --mobile-max:420px;     /* fixed mobile width (change this if UI grows/shrinks) */
+      --m-lines:3;            /* # of lines in mobile transcript window */
+      --m-lh:1.6;             /* line-height multiplier */
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif;overflow-x:hidden}
 
+    /* ===== Desktop header (unchanged) ===== */
     header{display:grid;gap:10px;align-items:center;padding:12px;background:var(--panel);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);grid-template-columns:repeat(12,minmax(0,1fr))}
     .field{display:flex;flex-direction:column;gap:6px}.field .lbl{font-size:12px;color:var(--muted)}
     header .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -49,7 +51,7 @@
 
     .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:saturate(120%) blur(2px);z-index:40}
 
-    .drawer{position:fixed;inset:0 auto 0 0;width:82%;max-width:420px;background:var(--panel);border-right:1px solid #273044;transform:translateX(-105%);transition:transform .18s ease-out;z-index:50;display:flex;flex-direction:column}
+    .drawer{position:fixed;inset:0 auto 0 0;width:82%;max-width:420px;background:var(--panel);border-right:1px solid var(--line);transform:translateX(-105%);transition:transform .18s ease-out;z-index:50;display:flex;flex-direction:column}
     .drawer.open{transform:translateX(0)}
     .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
     .drawer-title{font-weight:600}
@@ -58,6 +60,7 @@
     .drawer .sec{display:grid;gap:8px}
     .drawer .sec .sec-title{font-size:12px;color:var(--muted);margin:4px 0 2px}
 
+    /* ===== MOBILE UI ===== */
     :root[data-mobile="1"] body{font-size:16px}
     :root[data-mobile="1"] header{display:none}
     :root[data-mobile="0"] #mobileApp{display:none}
@@ -74,7 +77,7 @@
     #mTitle{font-size:24px;font-weight:800;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
     #mTimes{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
-    #mSeek{appearance:none;width:100%;height:20px;border-radius:10px;background:#0f131a;border:1px solid #273044;outline:none}
+    #mSeek{appearance:none;width:100%;height:20px;border-radius:10px;background:#0f131a;border:1px solid var(--line);outline:none}
     #mSeek::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);border:none}
     #mSeek::-moz-range-thumb{width:18px;height:18px;border:none;border-radius:50%;background:var(--accent)}
 
@@ -99,7 +102,7 @@
     #mBottom{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:2px}
     #mBottom .pill{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:12px;padding:10px 8px;background:#141923}
 
-    #speedPopover{position:fixed;z-index:60;min-width:220px;border:1px solid #2b3342;background:#0f131a;border-radius:12px;padding:10px;display:none;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+    #speedPopover{position:fixed;z-index:60;min-width:220px;border:1px solid var(--line);background:#0f131a;border-radius:12px;padding:10px;display:none;box-shadow:0 6px 20px rgba(0,0,0,.45)}
     #speedPopover .row{display:flex;gap:8px;flex-wrap:wrap}
     .speedOpt{flex:1;border:1px solid #2b3342;background:#1e2430;border-radius:10px;padding:8px 10px;text-align:center;cursor:pointer}
     .speedOpt:hover{filter:brightness(1.07)}
@@ -110,6 +113,7 @@
     :root[data-mobile="1"] #grid{display:none}
   </style>
 
+  <!-- set data-mobile ASAP -->
   <script>
     (function(){
       const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'')
@@ -164,6 +168,7 @@
     <audio id="player" hidden></audio>
   </main>
 
+  <!-- Speed popover -->
   <div id="speedPopover" role="dialog" aria-label="Playback speed">
     <div class="row">
       <div class="speedOpt" data-sp="0.75">0.75×</div>
@@ -191,10 +196,12 @@
     <div id="controlShelf">
       <div class="field audio">
         <div class="lbl">Audio</div>
+        <!-- accept m4b -->
         <input id="audioFile" type="file" accept="audio/*,.m4b" />
       </div>
       <div class="field ref">
         <div class="lbl">Reference Text (optional)</div>
+        <!-- accept epub -->
         <input id="refFile" type="file" accept=".txt,.epub,text/plain,application/epub+zip" />
       </div>
       <div class="actions">
@@ -225,6 +232,7 @@
     <div id="drawerControls" class="drawer-body">
       <div class="sec" id="secFiles">
         <div class="sec-title">Files</div>
+        <!-- audio/ref controls get moved here on mobile -->
       </div>
 
       <div class="sec" id="secChapters">
@@ -240,7 +248,7 @@
             <select id="textChSel" size="6" style="width:100%"></select>
             <small id="textChMeta" style="display:block;margin-top:4px;color:var(--muted)">(no text chapters)</small>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;align-items:center">
             <label class="lbl">Start at audio:</label>
             <input id="mapAudioIdx" type="number" min="0" step="1" value="0" style="width:80px">
             <label class="lbl">maps to text:</label>
@@ -282,11 +290,11 @@
     </section>
   </div>
 
-  <!-- deps (keep if you want; the m4b parser below does not rely on music-metadata-browser) -->
+  <!-- deps -->
   <script src="https://unpkg.com/fflate@0.8.2/umd/index.js"></script>
   <script src="https://unpkg.com/vosk-browser@0.0.8/dist/vosk.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/music-metadata-browser@2.5.6/dist/music-metadata-browser.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- chapters / containers -->
+  <script src="https://unpkg.com/mp4box@0.5.4/dist/mp4box.all.min.js"></script>
   <script src="https://unpkg.com/epubjs@0.3.93/dist/epub.min.js"></script>
 
   <script>
@@ -338,6 +346,7 @@
     const DESKTOP_MODEL_URL = new URL('models/en-us-desktop.zip', BASE).href;
     const MODEL_URL = IS_MOBILE ? MOBILE_MODEL_URL : DESKTOP_MODEL_URL;
 
+    /* --- App state --- */
     const HILITE_LEAD=.04,HILITE_LAG=.06,MIN_WORD=.08,CLICK_PAD=.04,CLICK_MIN=.3,GAP_PAD=.01;
     let ADAPTIVE_ON=false,driftBias=0; const DRIFT_ALPHA=.12,DRIFT_CLAMP=.25;
     let AUDIO_FILE=null,MODEL=null,RECOG=null,LOG=[];
@@ -539,13 +548,11 @@
       }catch(e){ addLog('warn','Attach audio failed',String(e)) }
       REF_TEXT=''; el.refFile && (el.refFile.value=''); ALIGNED_ONCE=false; refreshAlignButton(); addLog('info','Reference cleared for new audio');
 
+      // parse chapters if .m4b
       AUDIO_CH=[]; CURRENT_AUDIO_CH_INDEX=0; populateAudioChapterUI();
+      if (file.name.toLowerCase().endsWith('.m4b')) parseM4BChapters(file).catch(e=>addLog('warn','m4b chapters fail',String(e)));
+      // decode cache for chapter slicing
       DECODE_CACHE=null;
-
-      // parse chapters if .m4b (robust)
-      if (file.name.toLowerCase().endsWith('.m4b')) {
-        parseM4BChapters(file).catch(e=>addLog('warn','m4b chapters fail',String(e)));
-      }
     }
     el.audioFile && (el.audioFile.onchange=()=>attachAudioFile(el.audioFile.files?.[0]||null));
 
@@ -556,6 +563,7 @@
         TEXT_CH=[]; populateTextChapterUI();
         try{ await parseEpubChapters(f); addLog('info','EPUB chapters', {count:TEXT_CH.length}); }
         catch(e){ addLog('error','EPUB parse failed', String(e)); }
+        // do not set REF_TEXT here; chapter mode will pick per-chapter text
         ALIGNED_ONCE=false; refreshAlignButton();
       }else{
         try{ const txt=await f.text(); REF_TEXT=txt; addLog('info','Reference text loaded',{chars:txt.length}); TEXT_CH=[{title:f.name,text:txt,idx:0}]; populateTextChapterUI(); }
@@ -617,7 +625,7 @@
       return MODEL;
     }
 
-    /* ====== Decode caching ====== */
+    /* ====== Decode caching (so we can slice per chapter) ====== */
     async function ensureDecode(){
       if(DECODE_CACHE && AUDIO_FILE===DECODE_CACHE.file) return DECODE_CACHE;
       if(!AUDIO_FILE) throw new Error('No audio file');
@@ -668,79 +676,37 @@
       while(off<(useFloat?f32.length:i16.length)){
         const slice=useFloat?f32.subarray(off,Math.min(f32.length,off+CH)):i16.subarray(off,Math.min(i16.length,off+CH));
         off+=CH; n++;
-        try{
-          if(useFloat){
-            RECOG.acceptWaveformFloat(slice,sr);
-          }else{
-            if(RECOG.acceptWaveform.length===2){ RECOG.acceptWaveform(slice,sr); }
-            else { RECOG.acceptWaveform(slice); }
-          }
-        }catch(e){
-          addLog('error','acceptWaveform failed',String(e));
-          break;
-        }
-        if(n%8===0){
-          const denom = useFloat ? f32.length : i16.length;
-          setProg(12+Math.min(80,Math.round(off/denom*80)));
-        }
+        try{useFloat?RECOG.acceptWaveformFloat(slice,sr):(RECOG.acceptWaveform.length===2?RECOG.acceptWaveform(slice,sr):RECOG.acceptWaveform(slice))}catch(e){addLog('error','acceptWaveform failed',String(e));break}
+        n%8===0&&setProg(12+Math.min(80,Math.round(off/(useFloat?f32.length:i16.length)*80)));
         await new Promise(r=>setTimeout(r,0));
       }
+      try{const tail=sr*1|0;if(useFloat){const zf=new Float32Array(tail);RECOG.acceptWaveformFloat(zf,sr)} else{const zi=new Int16Array(tail);RECOG.acceptWaveform.length===2?RECOG.acceptWaveform(zi,sr):RECOG.acceptWaveform(zi)}}catch{}
 
-      // small zero tail to flush
-      try{
-        const tail=sr*1|0;
-        if(useFloat){
-          const zf=new Float32Array(tail); RECOG.acceptWaveformFloat(zf,sr);
-        }else{
-          const zi=new Int16Array(tail);
-          if(RECOG.acceptWaveform.length===2){ RECOG.acceptWaveform(zi,sr); }
-          else { RECOG.acceptWaveform(zi); }
-        }
-      }catch{}
-
-      // drain results
-      const words=[];
-      const pullAll=()=>{
-        let pulled=0;
-        if(RECOG.result){
-          for(;;){
-            let r=RECOG.result();
-            if(typeof r==='string'){ try{ r=JSON.parse(r) }catch{} }
-            const arr=r?.result||[], text=r?.text||'';
-            text && transcriptPieces.push(text);
-            if(arr && arr.length){ arr.forEach(x=>words.push(x)); pulled+=arr.length; }
-            else break;
-          }
-        }
-        if(RECOG.finalResult){
-          let fr=RECOG.finalResult();
-          if(typeof fr==='string'){ try{ fr=JSON.parse(fr) }catch{} }
-          const arr=fr?.result||[], text=fr?.text||'';
-          text && transcriptPieces.push(text);
-          if(arr && arr.length){ arr.forEach(x=>words.push(x)); pulled+=arr.length; }
-        }
+      // pull all
+      const seen=[], words=[];
+      const pullAll=()=>{let pulled=0;
+        if(RECOG.result){for(;;){let r=RECOG.result();typeof r==='string'&&(()=>{try{r=JSON.parse(r)}catch{}})();const arr=r?.result||[],text=r?.text||'';text&&transcriptPieces.push(text);if(arr&&arr.length){arr.forEach(x=>words.push(x));pulled+=arr.length}else break}}
+        if(RECOG.finalResult){let fr=RECOG.finalResult();typeof fr==='string'&&(()=>{try{fr=JSON.parse(fr)}catch{}})();const arr=fr?.result||[],text=fr?.text||'';text&&transcriptPieces.push(text);arr&&arr.length&&(arr.forEach(x=>words.push(x)),pulled+=arr.length)}
         return pulled;
       };
-      for(let k=0;k<3;k++){ await new Promise(r=>setTimeout(r,80)); pullAll(); }
+      for(let k=0;k<3;k++){await new Promise(r=>setTimeout(r,80));pullAll()}
 
-      // shift to absolute timeline (chapter start offset)
-      const shifted=words.filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end))
-        .map(w=>({word:String(w.word||'').trim(), start:start + +w.start, end:start + +w.end, conf:+(w.conf??1)}));
+      // shift times to absolute chapter start
+      const shifted=words.filter(w=>w && Number.isFinite(w.start) && Number.isFinite(w.end))
+        .map(w=>({word:String(w.word).trim(), start:start + +w.start, end:start + +w.end, conf:+(w.conf??1)}));
 
-      // optional per-chapter alignment
+      // optional per-chapter alignment using EPUB text
       const refTxt = overrideRef || (TEXT_CH[(audioChapterIndex + MAP_OFFSET)]?.text || '');
       LAST_WORDS = shifted;
-      if (refTxt && refTxt.trim()){
-        try{
+      if (refTxt && refTxt.trim()) {
+        try {
           const corrected = alignAndCorrect(LAST_WORDS, refTxt);
           addLog('info','Align & Correct (chapter)',{orig:LAST_WORDS.length,corrected:corrected.length});
           LAST_WORDS = corrected; ALIGNED_ONCE=true; refreshAlignButton();
-        }catch(e){ addLog('warn','Chapter align failed', String(e)); }
+        } catch(e){ addLog('warn','Chapter align failed', String(e)); }
       }
 
-      PLAY_WORDS=normalizeForPlayback(LAST_WORDS);
-      buildHighlightWindows();
-      render(PLAY_WORDS);
+      PLAY_WORDS=normalizeForPlayback(LAST_WORDS); buildHighlightWindows(); render(PLAY_WORDS);
       setProg(100);
       setStatus(`<span class="accent">Done</span> ${LAST_WORDS.length} words — ${ch.title}`);
       updateHighlightFromPlayer();
@@ -748,15 +714,13 @@
       if(makeActive){
         CURRENT_AUDIO_CH_INDEX=audioChapterIndex;
         const p=activePlayer();
-        // Seek to chapter start but DO NOT autoplay (fixes your “starts playing immediately” issue)
-        try{ p.pause(); }catch{}
         p.currentTime = ch.start;
         p.playbackRate = CURRENT_RATE;
-        // User will press play manually; highlighting will sync once playback starts
+        p.play().catch(()=>{});
       }
     }
 
-    async function run(){ // whole file or the currently selected chapter
+    async function run(){ // fallback: whole file
       LOG.length=0; el.log && (el.log.textContent='(log starts here)');
       el.text && (el.text.textContent='(no transcript yet)'); el.tb && (el.tb.innerHTML='');
       el.mText && (el.mText.textContent='(no transcript yet)');
@@ -770,7 +734,7 @@
       return runChapter(0,true,'');
     }
 
-    /* ===== Align helpers (unchanged) ===== */
+    /* ===== Align helpers ===== */
     function normalizeToken(s){return String(s).toLowerCase().replace(/[^a-z]+/g,'')}
     function tokenizeReference(text){return text.split(/\s+/).filter(Boolean).map(tok=>{const norm=normalizeToken(tok);return norm?{raw:tok,norm}:null}).filter(Boolean)}
     function levenshtein(a,b){const m=a.length,n=b.length,dp=new Array(n+1);for(let j=0;j<=n;j++)dp[j]=j;for(let i=1;i<=m;i++){let prev=dp[0];dp[0]=i;for(let j=1;j<=n;j++){const ins=dp[j]+1,del=dp[j-1]+1,sub=prev+(a[i-1]===b[j-1]?0:1);prev=dp[j];dp[j]=Math.min(ins,del,sub)}}return dp[n]}
@@ -810,36 +774,33 @@
           cont.append(frag); TOKENS=Array.from(cont.querySelectorAll('.token'));
           if(tb){const rows=document.createDocumentFragment();
             words.forEach((w,i)=>{const tr=document.createElement('tr');tr.innerHTML=`<td class="play"><button class="playbtn" data-idx="${i}" title="Play word">▶</button></td><td>${i+1}</td><td>${escapeHtml(w.word)}</td><td class="mobile-hide">${fmt(w.start)}</td><td class="mobile-hide">${fmt(w.end)}</td><td class="mobile-hide">${(w.conf??0).toFixed(2)}</td>`;rows.append(tr)});
-            tb.append(rows);
+            tb.append(rows)
           }
         }
       }
       // mobile 3-line viewport
       if(el.mText){
-        const m=el.mText; m.innerHTML=''; MOB_TOKENS=[]; CUR_HI=-1;
+        const m=el.mText; m.innerHTML=''; MOB_TOKENS=[];
         if(!words.length){m.textContent='(empty)'} else {
           const frag2=document.createDocumentFragment();
           words.forEach((w,i)=>{i&&frag2.append(' ');const sp=document.createElement('span');sp.className='token';sp.dataset.idx=String(i);sp.textContent=w.word;frag2.append(sp)});
           m.append(frag2); MOB_TOKENS=Array.from(m.querySelectorAll('.token'));
         }
         if (AUDIO_CH.length) {
-          const ch=AUDIO_CH[CURRENT_AUDIO_CH_INDEX]||AUDIO_CH[0];
+          const ch=AUDIO_CH[CURRENT_AUDIO_CH_INDEX];
           el.mChapterIdx.textContent=String(CURRENT_AUDIO_CH_INDEX+1).padStart(3,'0');
           el.mChapterClock.textContent=fmt(ch.start).slice(0,5);
           el.mChapterLen.textContent=fmt(ch.end-ch.start).slice(0,5);
-        } else {
-          el.mChapterIdx.textContent='—'; el.mChapterClock.textContent='—'; el.mChapterLen.textContent='—';
         }
       }
-      addLog('info','Rendered',{words:words.length});
+      addLog('info','Rendered',{words:words.length})
     }
 
-    // click-to-play
     el.text?.addEventListener('click',ev=>{const t=ev.target.closest('.token');if(!t)return;const idx=+t.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
     el.tb?.addEventListener('click',ev=>{const b=ev.target.closest('.playbtn');if(!b)return;const idx=+b.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
     el.mText?.addEventListener('click',ev=>{const t=ev.target.closest('.token');if(!t)return;const idx=+t.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
 
-    /* ========== Chapters UI helpers (unchanged) ========== */
+    /* ========== Chapters UI ========== */
     function populateAudioChapterUI(){
       const sel=el.audioChSel; sel.innerHTML='';
       if(!AUDIO_CH.length){el.audioChMeta.textContent='(no audio chapters)'; return;}
@@ -864,12 +825,14 @@
       const p=activePlayer();
       if (AUDIO_CH.length){
         const ch=AUDIO_CH[CURRENT_AUDIO_CH_INDEX];
-        // Seek but do not autoplay
-        try{ p.pause(); }catch{}
-        p.currentTime=ch.start; p.playbackRate=CURRENT_RATE;
+        p.currentTime=ch.start;
+        p.playbackRate=CURRENT_RATE;
+        p.play().catch(()=>{});
         const refTxt = TEXT_CH[CURRENT_AUDIO_CH_INDEX + MAP_OFFSET]?.text || '';
         runChapter(CURRENT_AUDIO_CH_INDEX,false,refTxt).catch(()=>{});
-      } else { alert('No audio chapters loaded'); }
+      } else {
+        alert('No audio chapters loaded');
+      }
     });
     el.transcribeThisChapter?.addEventListener('click',()=>{
       const idx = +el.audioChSel.value|0;
@@ -878,369 +841,123 @@
     el.audioChSel?.addEventListener('change',()=>{ const idx=+el.audioChSel.value|0; el.mapAudioIdx.value=idx; updateMapInfo(); });
     el.textChSel?.addEventListener('change',()=>{ const idx=+el.textChSel.value|0; el.mapTextIdx.value=idx; updateMapInfo(); });
 
-    /* ========== Robust m4b chapter parser (text-track + chpl) ========== */
-    function readBoxes(dv, start, end){
-      const boxes=[]; let off=start;
-      while(off+8<=end){
-        let size=dv.getUint32(off);
-        const type=String.fromCharCode(dv.getUint8(off+4),dv.getUint8(off+5),dv.getUint8(off+6),dv.getUint8(off+7));
-        let header=8;
-        if(size===1){ const hi=dv.getUint32(off+8), lo=dv.getUint32(off+12); size=Number((BigInt(hi)<<32n)+BigInt(lo)); header=16; }
-        else if(size===0){ size=end-off; }
-        if(size<header || off+size>end) break;
-        boxes.push({type,start:off,size,header,end:off+size,children:null});
-        off+=size||8;
-      }
-      return boxes;
-    }
-    function parseTree(dv, start, end){
-      const top=readBoxes(dv,start,end);
-      const walk=(box)=>{
-        const container=["moov","trak","mdia","minf","stbl","edts","udta","meta","ilst"].includes(box.type);
-        if(box.type==="meta"){
-          const payloadStart = box.start + box.header + 4;
-          box.children = readBoxes(dv, payloadStart, box.end).map(b=>walk(b));
-        }else if(container){
-          box.children = readBoxes(dv, box.start+box.header, box.end).map(b=>walk(b));
-        }else{ box.children=[]; }
-        return box;
-      };
-      return top.map(walk);
-    }
-    function findPath(root, path){
-      let cur=root, last=null;
-      for(const p of path){ last=(cur||[]).find(b=>b.type===p); if(!last) return null; cur=last.children||[]; }
-      return last;
-    }
-    function getDurationSeconds(dv, root){
-      const mvhd=findPath(root,["moov","mvhd"]); if(!mvhd) return null;
-      let off=mvhd.start+mvhd.header; const ver=dv.getUint8(off); off+=1; off+=3;
-      if(ver===1){ off+=8; off+=8; const timescale=dv.getUint32(off); off+=4; const hi=dv.getUint32(off), lo=dv.getUint32(off+4); off+=8; const dur=Number((BigInt(hi)<<32n)+BigInt(lo)); return timescale?dur/timescale:null; }
-      else { off+=4; off+=4; const timescale=dv.getUint32(off); off+=4; const dur=dv.getUint32(off); off+=4; return timescale?dur/timescale:null; }
-    }
-
-    function parseTextTrack(dv, root){
-      const moov=root.find(b=>b.type==='moov'); if(!moov) return {entries:[],debug:"no moov"};
-      const traks=moov.children.filter(b=>b.type==='trak');
-      for(const trak of traks){
-        const mdia=trak.children.find(b=>b.type==='mdia'); if(!mdia) continue;
-        const hdlr=mdia.children.find(b=>b.type==='hdlr'); if(!hdlr) continue;
-        const hOff=hdlr.start+hdlr.header;
-        const handler=String.fromCharCode(dv.getUint8(hOff+8),dv.getUint8(hOff+9),dv.getUint8(hOff+10),dv.getUint8(hOff+11));
-        if(!["text","sbtl","subt"].includes(handler)) continue;
-
-        const mdhd=mdia.children.find(b=>b.type==='mdhd'); if(!mdhd) continue;
-        let mOff=mdhd.start+mdhd.header; const ver=dv.getUint8(mOff); mOff+=1; mOff+=3;
-        let timescale; if(ver===1){ mOff+=8; mOff+=8; timescale=dv.getUint32(mOff); } else { mOff+=4; mOff+=4; timescale=dv.getUint32(mOff); }
-
-        const minf=mdia.children.find(b=>b.type==='minf'); if(!minf) continue;
-        const stbl=minf.children.find(b=>b.type==='stbl'); if(!stbl) continue;
-
-        const stts=stbl.children.find(b=>b.type==='stts'); if(!stts) continue;
-        let tOff=stts.start+stts.header; tOff+=4; const n=dv.getUint32(tOff); tOff+=4;
-        const dts=[]; let t=0;
-        for(let i=0;i<n;i++){ const count=dv.getUint32(tOff); tOff+=4; const delta=dv.getUint32(tOff); tOff+=4; for(let j=0;j<count;j++){ dts.push(t); t+=delta; } }
-
-        const stsz=stbl.children.find(b=>b.type==='stsz'); if(!stsz) continue;
-        let zOff=stsz.start+stsz.header; zOff+=4; const sampleSize=dv.getUint32(zOff); zOff+=4; const sampleCount=dv.getUint32(zOff); zOff+=4;
-        const sizes = sampleSize ? Array(sampleCount).fill(sampleSize) : Array.from({length:sampleCount},(_,i)=>dv.getUint32(zOff+i*4));
-
-        const stsc=stbl.children.find(b=>b.type==='stsc'); if(!stsc) continue;
-        let cOff=stsc.start+stsc.header; cOff+=4; const cCount=dv.getUint32(cOff); cOff+=4; const stscEntries=[];
-        for(let i=0;i<cCount;i++){ stscEntries.push([dv.getUint32(cOff),dv.getUint32(cOff+4),dv.getUint32(cOff+8)]); cOff+=12; }
-
-        const stco=stbl.children.find(b=>b.type==='stco'); const co64=stbl.children.find(b=>b.type==='co64');
-        let offs=[];
-        if(stco){ let oOff=stco.start+stco.header; oOff+=4; const oCount=dv.getUint32(oOff); oOff+=4; for(let i=0;i<oCount;i++) offs.push(dv.getUint32(oOff+i*4)); }
-        else if(co64){ let oOff=co64.start+co64.header; oOff+=4; const oCount=dv.getUint32(oOff); oOff+=4; for(let i=0;i<oCount;i++){ const hi=dv.getUint32(oOff+i*8),lo=dv.getUint32(oOff+i*8+4); offs.push(Number((BigInt(hi)<<32n)+BigInt(lo))); } }
-        else continue;
-
-        // build sample offsets
-        const chunkSampleCounts = Array(offs.length).fill(0);
-        for (let i=0;i<stscEntries.length;i++){
-          const first=stscEntries[i][0]-1;
-          const nextFirst=(i+1<stscEntries.length?stscEntries[i+1][0]-2:offs.length-1);
-          const spc=stscEntries[i][1];
-          for(let ch=first; ch<=nextFirst; ch++){ if(ch>=0 && ch<chunkSampleCounts.length) chunkSampleCounts[ch]=spc; }
-        }
-        const sampleOffsets=[]; let sizeIdx=0;
-        for(let ch=0; ch<offs.length; ch++){
-          const base=offs[ch], spc=chunkSampleCounts[ch]||0;
-          let cur=base;
-          for(let k=0;k<spc;k++){
-            if(sizeIdx>=sizes.length) break;
-            const sz=sizes[sizeIdx++]; sampleOffsets.push([cur,sz]); cur+=sz;
-          }
-          if(sizeIdx>=sizes.length) break;
-        }
-
-        const nSamples=Math.min(dts.length,sampleOffsets.length), entries=[];
-        for(let i=0;i<nSamples;i++){
-          const [soff,sz]=sampleOffsets[i];
-          const bytes=new Uint8Array(dv.buffer, soff, sz);
-          let title="";
-          if(sz>=2){
-            const L=(bytes[0]<<8)|bytes[1];
-            if(L>0 && 2+L<=bytes.length){ title=new TextDecoder().decode(bytes.slice(2,2+L)); }
-          }
-          if(!title){
-            try{ title=new TextDecoder().decode(bytes); }catch{ try{ title=new TextDecoder('utf-16be').decode(bytes); }catch{ title=""; } }
-          }
-          entries.push({index:i+1,startSeconds:timescale? dts[i]/timescale:0,title:(title||'').trim()});
-        }
-        if(entries.length) return {entries,debug:`text-track samples=${entries.length}`};
-      }
-      return {entries:[],debug:'no text-track'};
-    }
-
-    function parseChpl(dv, chplBox, fileDurationSec){
-      const start = chplBox.start + chplBox.header, end = chplBox.end;
-      if (end - start < 6) return { entries:[], debug:"too small" };
-      let off = start;
-      const units=[["us",1/1e6],["ms",1/1e3],["sec",1],["cs",1/100],["90k",1/90000]];
-      const margin=600;
-
-      function parseLen(base){
-        const out=[]; let p=base;
-        while(p+9<=end){
-          const hi=dv.getUint32(p), lo=dv.getUint32(p+4); p+=8;
-          const L=dv.getUint8(p); p+=1;
-          if(p+L>end) break;
-          const bytes=new Uint8Array(dv.buffer, dv.byteOffset+p, L); p+=L;
-          const title=new TextDecoder().decode(bytes);
-          const raw=Number((BigInt(hi)<<32n)+BigInt(lo));
-          out.push({raw,title});
-          if(L===0 && out.length>4096) break;
-        }
-        return out;
-      }
-      function parseCStr(base){
-        const out=[]; let p=base;
-        while(p+9<=end){
-          const hi=dv.getUint32(p), lo=dv.getUint32(p+4); p+=8;
-          let q=p, found=-1, scanned=0;
-          while(q<end && scanned<2048){ if(dv.getUint8(q)===0){found=q;break;} q++; scanned++; }
-          if(found<0) break;
-          const bytes=new Uint8Array(dv.buffer, dv.byteOffset+p, found-p); p=found+1;
-          const raw=Number((BigInt(hi)<<32n)+BigInt(lo));
-          const title=new TextDecoder().decode(bytes);
-          out.push({raw,title});
-          if(out.length>4096) break;
-        }
-        return out;
-      }
-
-      const atts=[];
-      for(const layout of ["len","cstr"]){
-        for(const skip of [false,true]){
-          for(let shift=0; shift<=64; shift++){
-            const base=off+(skip?1:0)+shift; if(base>=end) break;
-            const raw = (layout==="len") ? parseLen(base) : parseCStr(base);
-            if(!raw.length) continue;
-            atts.push({layout,skip,shift,raw});
-          }
-        }
-      }
-      if(!atts.length) return {entries:[],debug:'no candidates'};
-
-      // choose best unit
-      let bestUnit="us", bestScale=1/1e6, bestCount=-1;
-      for(const [uname,scale] of units){
-        let c=0;
-        for(const a of atts){
-          for(const r of a.raw){
-            const t=r.raw*scale;
-            if(t>=0 && (!fileDurationSec || t<=fileDurationSec+margin)) c++;
-          }
-        }
-        if(c>bestCount){ bestCount=c; bestUnit=uname; bestScale=scale; }
-      }
-
-      atts.forEach(a=>{
-        a.seq=a.raw.map(r=>({t:r.raw*bestScale,title:r.title}));
-        a.inRange=a.seq.filter(e=>e.t>=0 && (!fileDurationSec || e.t<=fileDurationSec+margin));
-        a.score=a.inRange.length;
-      });
-      atts.sort((a,b)=>b.score-a.score);
-      const primary=atts[0];
-      const merged=[...primary.inRange];
-      for(let i=1;i<atts.length;i++){
-        for(const e of atts[i].inRange){
-          if(!merged.some(m=>Math.abs(m.t-e.t)<=0.2)) merged.push(e);
-        }
-      }
-      merged.sort((a,b)=>a.t-b.t);
-
-      return { entries: merged.map((e,i)=>({index:i+1,startSeconds:e.t,title:e.title})),
-               debug:`chpl: unit=${bestUnit}, primary=${primary.layout}/${primary.skip}/${primary.shift}, inRange=${primary.inRange.length}, merged=${merged.length}` };
-    }
-
-    function withStops(list, durationSec){
-      const out=list.map(c=>({...c}));
-      for(let i=0;i<out.length;i++){
-        const thisStart=out[i].startSeconds ?? out[i].start ?? 0;
-        const nextStart=(i+1<out.length) ? (out[i+1].startSeconds ?? out[i+1].start ?? thisStart) :
-                        (Number.isFinite(durationSec)? durationSec : thisStart);
-        out[i].start = thisStart;
-        out[i].end = Math.max(thisStart, nextStart);
-        out[i].title = out[i].title || `Chapter ${String(i+1).padStart(2,'0')}`;
-      }
-      return out.map(({index,...c},i)=>({title:c.title,start:c.start,end:c.end,index:i+1}));
-    }
-
+    /* ========== m4b chapter parsing (mp4box) ========== */
     async function parseM4BChapters(file){
-      try{
-        addLog('info','Scanning MP4 boxes…');
-        const buf=await file.arrayBuffer();
-        const dv=new DataView(buf);
-        const root=parseTree(dv,0,buf.byteLength);
-        const dur=getDurationSeconds(dv,root);
-        if(dur) addLog('info',`Duration (mvhd): ${fmt(dur)} (${dur.toFixed(3)} s)`);
-
-        // Prefer QuickTime text-track chapters
-        const textRes=parseTextTrack(dv,root);
-        if(textRes.entries.length){
-          addLog('info',`Found QuickTime text-track chapters. ${textRes.debug}`);
-          AUDIO_CH = withStops(textRes.entries.sort((a,b)=>a.startSeconds-b.startSeconds), dur);
-          populateAudioChapterUI();
-          return;
+      addLog('info','Parsing m4b chapters…');
+      const mp4boxfile = MP4Box.createFile();
+      const buf = await file.arrayBuffer();
+      const arrayBuffer = buf.slice(0); arrayBuffer.fileStart = 0;
+      const chapters=[];
+      mp4boxfile.onReady = info => {
+        // try to find a text track that acts like a chapter track
+        let timescale = info.timescale || 1000;
+        if(info.tracks && info.tracks.length){
+          info.tracks.forEach(tr=>{
+            if(tr.kind && /chap/i.test(tr.kind.schemeURI||'') || (tr.codec && /text|tx3g|wvtt|stpp/i.test(tr.codec))) {
+              const s = tr.samples || [];
+              for(const smp of s){
+                const start = smp.dts / tr.timescale;
+                const end = (smp.dts + smp.duration) / tr.timescale;
+                const title = (smp.text || smp.data || smp.description || '').toString().trim() || `Chapter ${chapters.length+1}`;
+                chapters.push({title, start, end});
+              }
+            }
+          });
         }
-
-        // Fallback to Nero chpl if present
-        const udta=findPath(root,["moov","udta"]);
-        const chpl=udta?.children?.find(b=>b.type==='chpl');
-        if(chpl){
-          const chplRes=parseChpl(dv,chpl,dur||null);
-          addLog('info',`Found Nero chpl. ${chplRes.debug}`);
-          AUDIO_CH = withStops(chplRes.entries.sort((a,b)=>a.startSeconds-b.startSeconds), dur);
-          populateAudioChapterUI();
-          return;
+        // Fallback: QuickTime "chap" or udta (not always surfaced by mp4box) – we’ll at least set a single chapter whole file if none
+        if(!chapters.length){
+          const dur = (info.duration || 0) / (info.timescale||1000);
+          chapters.push({title:file.name, start:0, end:dur||999999});
         }
-
-        // Last resort: single chapter using duration
-        addLog('warn','No chapters found; using single chapter');
-        AUDIO_CH = [{title:file.name,start:0,end:dur||999999}];
-        populateAudioChapterUI();
-      }catch(e){
-        addLog('warn','m4b parse failed — single chapter', String(e));
-        AUDIO_CH=[{title:file.name,start:0,end:999999}];
-        populateAudioChapterUI();
+      };
+      mp4boxfile.appendBuffer(arrayBuffer);
+      mp4boxfile.flush();
+      // Normalize/close gaps and ensure sequential
+      chapters.sort((a,b)=>a.start-b.start);
+      for(let i=0;i<chapters.length;i++){
+        if(i<chapters.length-1) chapters[i].end = Math.min(chapters[i].end, chapters[i+1].start);
+        if(chapters[i].end <= chapters[i].start) chapters[i].end = chapters[i].start + 0.5;
       }
+      AUDIO_CH = chapters;
+      populateAudioChapterUI();
+      addLog('info','m4b chapters parsed',{count:chapters.length});
     }
 
-    /* ========== EPUB chapters via JSZip + DOMParser (OPF/NCX/NAV) ========== */
+    /* ========== EPUB parsing (epub.js) ========== */
     async function parseEpubChapters(file){
-      addLog('info','Parsing EPUB container…');
-      const zip = await JSZip.loadAsync(file);
-      const containerXml = await zip.file('META-INF/container.xml')?.async('text');
-      if(!containerXml){ addLog('error','container.xml missing in EPUB'); TEXT_CH=[]; populateTextChapterUI(); return; }
-      const dp=new DOMParser();
-      const containerDoc = dp.parseFromString(containerXml,'application/xml');
-      const rootfile = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
-      if(!rootfile){ addLog('error','OPF path missing'); TEXT_CH=[]; populateTextChapterUI(); return; }
-      const opfText = await zip.file(rootfile)?.async('text');
-      if(!opfText){ addLog('error','OPF not found'); TEXT_CH=[]; populateTextChapterUI(); return; }
-      const opfDoc = dp.parseFromString(opfText,'application/xml');
-      const opfDir = rootfile.split('/').slice(0,-1).join('/');
-      const resolveHref = (href)=> (opfDir?opfDir+'/':'') + href;
+      addLog('info','Parsing EPUB…');
+      const url=URL.createObjectURL(file);
+      const book = ePub(url);
+      await book.ready;
+      const nav = await book.loaded.navigation;
+      const toc = (nav && nav.toc) ? nav.toc : [];
+      // flatten toc (one level)
+      const items=[];
+      function walk(arr){ arr.forEach(n=>{ items.push(n); if(n.subitems) walk(n.subitems); }) }
+      walk(toc);
 
-      const manifest = {};
-      opfDoc.querySelectorAll('manifest > item').forEach(it=>{
-        manifest[it.getAttribute('id')] = {
-          href: it.getAttribute('href'),
-          type: it.getAttribute('media-type')
-        };
-      });
-      const spineIds = Array.from(opfDoc.querySelectorAll('spine > itemref')).map(n=>n.getAttribute('idref')).filter(Boolean);
-
-      async function extractFromNav(item){
-        const href = resolveHref(item.href);
-        const navHtml = await zip.file(href)?.async('text');
-        if(!navHtml) return [];
-        const doc = dp.parseFromString(navHtml,'text/html');
-        const tocNav = doc.querySelector('nav[epub\\:type="toc"], nav[type="toc"], nav[role="doc-toc"]') || doc.querySelector('nav');
-        if(!tocNav) return [];
-        const items=[];
-        tocNav.querySelectorAll('li > a').forEach((a,i)=>{
-          const title=(a.textContent||`Chapter ${i+1}`).trim();
-          const link=a.getAttribute('href')||'';
-          items.push({title, href: link});
-        });
-        return items;
-      }
-      async function extractFromNCX(ncxItem){
-        const href = resolveHref(ncxItem.href);
-        const ncxXml = await zip.file(href)?.async('text'); if(!ncxXml) return [];
-        const doc = dp.parseFromString(ncxXml,'application/xml');
-        const items=[];
-        doc.querySelectorAll('navMap navPoint').forEach((np,i)=>{
-          const title = (np.querySelector('navLabel text')?.textContent || `Chapter ${i+1}`).trim();
-          const src = np.querySelector('content')?.getAttribute('src') || '';
-          items.push({title, href: src});
-        });
-        return items;
-      }
-
-      let tocEntries=[];
-      const navEntry = Object.values(manifest).find(m=>/xhtml|html/i.test(m.type)&&/nav/i.test(m.type) || /nav\.x?html$/i.test(m.href));
-      if(navEntry){ tocEntries = await extractFromNav(navEntry); }
-      if(!tocEntries.length){
-        const ncxEntry = Object.values(manifest).find(m=>/application\/x-dtbncx\+xml/i.test(m.type) || /\.ncx$/i.test(m.href));
-        if(ncxEntry) tocEntries = await extractFromNCX(ncxEntry);
-      }
-      if(!tocEntries.length){
-        tocEntries = spineIds.map((id,idx)=>({title:`Chapter ${idx+1}`, href: manifest[id]?.href || ''}));
-      }
-
-      async function readContent(hrefRaw){
-        if(!hrefRaw) return '';
-        const href = resolveHref(hrefRaw.split('#')[0]);
-        const html = await zip.file(href)?.async('text'); if(!html) return '';
-        const doc = dp.parseFromString(html,'text/html');
-        doc.querySelectorAll('script,style,noscript').forEach(n=>n.remove());
-        return (doc.body?.textContent||'').replace(/\s+/g,' ').trim();
+      async function itemText(href){
+        try{
+          const res = await book.resources.get(href);
+          if(!res) return '';
+          const html = await res.text();
+          const div = document.createElement('div'); div.innerHTML = html;
+          // remove scripts/styles
+          div.querySelectorAll('script,style,noscript').forEach(n=>n.remove());
+          return (div.textContent || '').replace(/\s+/g,' ').trim();
+        }catch{ return '' }
       }
 
       const out=[];
-      for(let i=0;i<tocEntries.length;i++){
-        const it=tocEntries[i];
-        const text=await readContent(it.href);
-        if(text && text.length>0) out.push({title:it.title, text, idx:i});
+      for(let i=0;i<items.length;i++){
+        const it=items[i], title=(it.label||it.id||`Chapter ${i+1}`).toString();
+        const text=await itemText(it.href||it.hrefs||it.url||'');
+        out.push({title, text, idx:i});
       }
-      TEXT_CH=out;
+      TEXT_CH = out.filter(x=>x.text && x.text.length>0);
       populateTextChapterUI();
-      addLog('info','EPUB chapters parsed',{count:TEXT_CH.length});
     }
 
-    /* ========== Init & controls ========== */
+    /* ========== Init & wire buttons ========== */
     addLog('info','Ready. Auto-detecting model in background (no model UI).');
     addLog('info','Env',{ua:navigator.userAgent,deviceMemory:navigator.deviceMemory||null});
-
-    // main actions
     el.go && (el.go.onclick=()=>run().catch(e=>addLog('error','Top level failure',String(e))));
-    el.align && (el.align.onclick=()=>{try{
-      if(!LAST_WORDS.length){alert('Transcribe first');return}
-      const refTxt= (CHAPTER_MODE && TEXT_CH[(CURRENT_AUDIO_CH_INDEX+MAP_OFFSET)]?.text) || REF_TEXT || '';
-      if(!refTxt){alert('Load an EPUB or TXT to align against.');return}
-      const corrected=alignAndCorrect(LAST_WORDS,refTxt);
-      addLog('info','Alignment complete',{orig:LAST_WORDS.length,corrected:corrected.length});
-      LAST_WORDS=corrected;PLAY_WORDS=normalizeForPlayback(LAST_WORDS);buildHighlightWindows();render(PLAY_WORDS);updateHighlightFromPlayer();ALIGNED_ONCE=true;refreshAlignButton()
-    }catch(e){addLog('error','Align failed',String(e));alert('Align failed — see log')}});
-
+    el.align && (el.align.onclick=()=>{try{if(!LAST_WORDS.length){alert('Transcribe first');return}const refTxt= (CHAPTER_MODE && TEXT_CH[(CURRENT_AUDIO_CH_INDEX+MAP_OFFSET)]?.text) || REF_TEXT || '';if(!refTxt){alert('Load an EPUB or TXT to align against.');return}const corrected=alignAndCorrect(LAST_WORDS,refTxt);addLog('info','Alignment complete',{orig:LAST_WORDS.length,corrected:corrected.length});LAST_WORDS=corrected;PLAY_WORDS=normalizeForPlayback(LAST_WORDS);buildHighlightWindows();render(PLAY_WORDS);updateHighlightFromPlayer();ALIGNED_ONCE=true;refreshAlignButton()}catch(e){addLog('error','Align failed',String(e));alert('Align failed — see log')}});
     refreshAlignButton();
 
-    // mobile transport
     if(IS_MOBILE){
       const p=activePlayer();
       el.mPrev&&(el.mPrev.onclick=()=>{p.currentTime=Math.max(0,p.currentTime-10)});
       el.mNext&&(el.mNext.onclick=()=>{if(isFinite(p.duration)) p.currentTime=Math.min(p.duration,p.currentTime+10)});
-      function syncPlayBtn(){ el.mPlay.textContent=p.paused?'▶':'⏸'; }
-      el.mPlay&&(el.mPlay.onclick=()=>{p.paused?p.play():p.pause(); syncPlayBtn()});
-      p.addEventListener('play',syncPlayBtn); p.addEventListener('pause',syncPlayBtn);
+      el.mPlay&&(el.mPlay.onclick=()=>{p.paused?p.play():p.pause(); el.mPlay.textContent=p.paused?'▶':'⏸'});
+      p.addEventListener('play',()=>{ el.mPlay.textContent='⏸'; setRate(CURRENT_RATE); });
+      p.addEventListener('pause',()=>{ el.mPlay.textContent='▶'; });
     }
 
-    // keep times updating
-    setInterval(()=>{ if(IS_MOBILE) setMobileTimes(); }, 250);
+    // Keep the speed pill in sync on first load
+    setRate(CURRENT_RATE);
+
+    // Show initial mapping info
+    updateMapInfo();
+
+    // Auto-advance to next chapter when a chapter finishes (chapter mode)
+    function advanceOnEnd(){
+      if (!CHAPTER_MODE || !AUDIO_CH.length) return;
+      const next = CURRENT_AUDIO_CH_INDEX + 1;
+      if (next < AUDIO_CH.length) {
+        const refTxt = TEXT_CH[next + MAP_OFFSET]?.text || '';
+        runChapter(next, true, refTxt).catch(()=>{});
+      }
+    }
+    el.player?.addEventListener('ended', advanceOnEnd);
+    el.playerDesktop?.addEventListener('ended', advanceOnEnd);
+
+    // Lightweight self-checks
+    (function(){
+      const samp=resampleF32(new Float32Array([0,1,0,-1]),4,8);
+      console.assert(samp.length===8,'resample length');
+      console.assert(fmt(61.005)==='01:01.005','fmt time');
+    })();
   </script>
 </body>
 </html>
