@@ -841,8 +841,8 @@
         new URL('ffmpeg.min.js', LOCAL_BASE).href,
     
         // CDN fallbacks
-        'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js',
-        'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js',
+        'https://ltbosox.github.io/AudTextSync/ffmpeg/ffmpeg.min.js',
+        'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/umd/ffmpeg.min.js',
       ];
     
       // If we’re on file://, warn loudly (wasm won’t load)
@@ -894,8 +894,8 @@
       const LOCAL_BASE = new URL('ffmpeg/', location.href).href;
       const CORE_CANDIDATES = [
         new URL('ffmpeg-core.js', LOCAL_BASE).href,                                          // local
-        'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js',            // cdn
-        'https://unpkg.com/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js',                       // cdn
+        'https://ltbosox.github.io/AudTextSync/ffmpeg/ffmpeg-core.js',                       // cdn
+        'https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js',                       // cdn
       ];
     
       let corePath = CORE_CANDIDATES[0];
@@ -931,8 +931,8 @@
       try{
         // Don’t fully load wasm; just check that we can at least fetch one of the core files
         const localCore = new URL('ffmpeg/ffmpeg-core.js', location.href).href;
-        const cdnCore1 = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js';
-        const cdnCore2 = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js';
+        const cdnCore1 = 'https://ltbosox.github.io/AudTextSync/ffmpeg/ffmpeg-core.js';
+        const cdnCore2 = 'https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js';
         const ok = (await headOk(localCore)) ||
                    (location.protocol!=='file:' && (await headOk(cdnCore1) || await headOk(cdnCore2)));
         if (!ok){
@@ -943,7 +943,7 @@
             '1) Create a folder named "ffmpeg" next to this HTML file.\n' +
             '2) Put these files into ./ffmpeg/ :\n' +
             '   - ffmpeg.min.js (from @ffmpeg/ffmpeg@0.12.10)\n' +
-            '   - ffmpeg-core.js, ffmpeg-core.wasm, ffmpeg-core.worker.js (from @ffmpeg/core@0.12.10)\n' +
+            '   - ffmpeg-core.js, ffmpeg-core.wasm, ffmpeg-core.worker.js (from @ffmpeg/core@0.10.0)\n' +
             '3) Serve this folder over HTTP (not file://). Example on Windows or Mac:\n' +
             '   - Python:  python -m http.server 8000\n' +
             '   - Then open:  http://127.0.0.1:8000/<yourfile>.html\n' +
