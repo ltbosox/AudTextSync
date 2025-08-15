@@ -49,7 +49,7 @@
     };
 
     // ESM fallback location verified on jsDelivr (index.js exists here)
-    const ESM_INDEX = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js'; // exports { FFmpeg }
+    const ESM_INDEX = new URL('./ffmpeg/esm/index.js', location.href).toString(); // exports { FFmpeg }
     // (Directory listing shows index.js under dist/esm/) :contentReference[oaicite:2]{index=2}
 
     let gFFmpeg = null;
