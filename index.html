@@ -270,6 +270,7 @@
   <script src="https://unpkg.com/fflate@0.8.2/umd/index.js"></script>
   <script src="https://unpkg.com/vosk-browser@0.0.8/dist/vosk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/ffmpeg.min.js"></script>
 
   <script>
     /* ===================== Crash guard to Log ===================== */
@@ -778,6 +779,53 @@
     el.tb?.addEventListener('click',ev=>{const b=ev.target.closest('.playbtn');if(!b)return;const idx=+b.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
     el.mText?.addEventListener('click',ev=>{const t=ev.target.closest('.token');if(!t)return;const idx=+t.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
 
+    /* ===== ffmpeg.wasm fallback for .m4b slicing ===== */
+    let __ffmpeg = null, __ffmpegLoading = null;
+    
+    async function ensureFFmpeg(){
+      if (__ffmpeg) return __ffmpeg;
+      if (__ffmpegLoading) return __ffmpegLoading;
+      if (!window.FFmpeg) throw new Error('FFmpeg script not loaded');
+      const { createFFmpeg, fetchFile } = FFmpeg;
+      const ff = createFFmpeg({
+        log: false, // flip to true for debugging
+        corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/ffmpeg-core.js'
+      });
+      __ffmpegLoading = (async()=>{
+        addLog('info','Loading ffmpeg.wasm…');
+        await ff.load();
+        addLog('info','ffmpeg.wasm ready');
+        return ff;
+      })();
+      __ffmpeg = await __ffmpegLoading;
+      return __ffmpeg;
+    }
+    
+    // Slice [startSec, endSec] from an .m4b into a 16k mono WAV blob
+    async function m4bSliceToWavUsingFFmpeg(file, startSec, endSec){
+      const ff = await ensureFFmpeg();
+      const inName  = 'in.m4b';
+      const outName = 'out.wav';
+      // mount input
+      ff.FS('writeFile', inName, await FFmpeg.fetchFile(file));
+      // Build args: precise trim, 16k mono, PCM16
+      const args = [
+        '-ss', String(Math.max(0, startSec||0)),
+        ...(Number.isFinite(endSec) ? ['-to', String(Math.max(0, endSec||0))] : []),
+        '-i', inName,
+        '-ac', '1',
+        '-ar', '16000',
+        '-c:a', 'pcm_s16le',
+        '-y', outName
+      ];
+      addLog('info','ffmpeg slice', { args: args.join(' ') });
+      await ff.run(...args);
+      const data = ff.FS('readFile', outName); // Uint8Array
+      // Optional cleanup
+      try{ ff.FS('unlink', inName); ff.FS('unlink', outName); }catch{}
+      return new Blob([data.buffer], { type: 'audio/wav' });
+    }
+    
     /* ===== Chapters UI helpers ===== */
     function getSelectedAudioIndex(){
       let idx = Number.isFinite(+el.audioChSel.value) ? (+el.audioChSel.value|0) : 0;
@@ -1178,17 +1226,27 @@
     function fmtBytes(n){ if(!Number.isFinite(n)) return '—'; const u=['B','KB','MB','GB']; let i=0; while(n>=1024&&i<u.length-1){n/=1024;i++} return n.toFixed(1)+' '+u[i] }
     
     async function sliceCurrentToWavBlob(){
-      const cache = await ensureDecode(); // uses your existing decode/resample pipeline (→ 16 kHz mono Float32Array)
+      const isM4B = AUDIO_FILE && /\.m4b$/i.test(AUDIO_FILE.name||'');
       const idx = getSelectedAudioIndex();
-      const ch  = AUDIO_CH[idx] || { title:'chapter', start:0, end:cache.durationSec };
+      const ch  = AUDIO_CH[idx] || { title:'chapter', start:0, end:(DECODE_CACHE?.durationSec||0) };
     
+      if (isM4B){
+        // Use ffmpeg for reliability on m4b
+        const blob = await m4bSliceToWavUsingFFmpeg(AUDIO_FILE, ch.start, ch.end);
+        const name = `${safeFileStem(ch.title || AUDIO_FILE.name)}.wav`;
+        // We still want to know the actual duration; set approximate if needed
+        const sr = 16000;
+        return { blob, name, sr, samples: Math.round((ch.end-ch.start)*sr), dur: (ch.end-ch.start) };
+      }
+    
+      // Non-m4b path: use your fast in-memory decoder/resampler
+      const cache = await ensureDecode();
       const sr  = cache.sr;
       const s0  = Math.floor(ch.start * sr);
       const s1  = Math.floor(Math.min(ch.end, cache.durationSec) * sr);
       const f32 = cache.f32.subarray(s0, s1);
-      const i16 = floatToInt16(f32);          // existing helper
-      const wav = writeWavPCM16(i16, sr);     // existing helper (writes proper WAV header)
-    
+      const i16 = floatToInt16(f32);
+      const wav = writeWavPCM16(i16, sr);
       const stem = safeFileStem(ch.title || (AUDIO_FILE?.name || 'audio'));
       const name = `${stem}.wav`;
       return { blob: wav, name, sr, samples: i16.length, dur: (i16.length/sr) };
@@ -1254,19 +1312,34 @@
 
     async function exportCurrentChapterWav(){
       try{
-        const cache=await ensureDecode();
+        const isM4B = AUDIO_FILE && /\.m4b$/i.test(AUDIO_FILE.name||'');
         const idx = getSelectedAudioIndex();
-        const ch=AUDIO_CH[idx] || {start:0,end:cache.durationSec,title:'chapter'};
-        const sr=cache.sr;
-        const f32=cache.f32.subarray(Math.floor(ch.start*sr), Math.floor(Math.min(ch.end,cache.durationSec)*sr));
-        const i16=floatToInt16(f32);
-        const blob=writeWavPCM16(i16,sr);
+        const ch  = AUDIO_CH[idx] || {start:0,end:(DECODE_CACHE?.durationSec||0),title:'chapter'};
+    
+        let blob, sr, bytes;
+        if (isM4B){
+          setStatus('Exporting WAV via ffmpeg…');
+          blob = await m4bSliceToWavUsingFFmpeg(AUDIO_FILE, ch.start, ch.end);
+          sr = 16000;
+          bytes = blob.size;
+        } else {
+          const cache=await ensureDecode();
+          const s0=Math.floor(ch.start*cache.sr);
+          const s1=Math.floor(Math.min(ch.end,cache.durationSec)*cache.sr);
+          const i16=floatToInt16(cache.f32.subarray(s0,s1));
+          blob=writeWavPCM16(i16,cache.sr);
+          sr = cache.sr;
+          bytes = 44 + i16.length*2;
+        }
+    
         const a=document.createElement('a');
         const safeTitle=(ch.title||'chapter').replace(/[^\w\-]+/g,'_').slice(0,80);
         a.href=URL.createObjectURL(blob);
         a.download=`${safeTitle}.wav`;
         a.click();
-        addLog('info','Exported WAV',{samples:i16.length,sampleRate:sr});
+    
+        addLog('info','Exported WAV',{ sampleRate:sr, bytes, chapter: { start: ch.start, end: ch.end } });
+        setStatus(`<span class="accent">Exported</span> ${safeTitle}.wav`);
       }catch(e){
         addLog('error','Export WAV failed', String(e));
         alert('Export failed (see log).');
