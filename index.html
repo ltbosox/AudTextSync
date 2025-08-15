@@ -124,7 +124,6 @@
   const FFMPEG_UMD_CANDIDATES = [
     'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.10/umd/ffmpeg.min.js',   // ✅ has .min.js
     'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js',    // (non-min) fallback
-    'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js',               // (non-min) fallback
     `${location.origin}/AudTextSync/ffmpeg/ffmpeg.min.js`,                        // your Pages copy (if published)
   ];
   
@@ -873,7 +872,6 @@
   
         // CDN fallbacks — UMD (NOT ESM)
         'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.min.js',
-        'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.min.js',
       ];
   
       if (location.protocol === 'file:'){
