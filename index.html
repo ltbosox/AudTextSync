@@ -7,7 +7,6 @@
   <style>
     :root{
       --bg:#111418;--panel:#161b21;--fg:#e8eef7;--muted:#9aa6b2;--line:#273044;--accent:#ffd666;
-      /* MOBILE TUNABLES */
       --mobile-max:420px;
       --m-lines:8;
       --m-lh:1.6;
@@ -16,7 +15,6 @@
     html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif;overflow-x:hidden}
 
-    /* ===== Desktop header (unchanged) ===== */
     header{display:grid;gap:10px;align-items:center;padding:12px;background:var(--panel);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);grid-template-columns:repeat(12,minmax(0,1fr))}
     .field{display:flex;flex-direction:column;gap:6px}.field .lbl{font-size:12px;color:var(--muted)}
     header .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -31,6 +29,12 @@
     button.danger{background:#ff6b6b;color:#000;border-color:#ff9e9e}
     progress{height:12px;width:240px}
     #playerDesktop{width:100%;height:42px;background:#0f131a;border-radius:10px}
+
+    /* Desktop chapter bar */
+    #chaptersDesktop{grid-column:1/-1;border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:10px;background:#131821}
+    #chaptersDesktop .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    #chaptersDesktop .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    #chaptersDesktop small{color:var(--muted)}
 
     #grid{display:grid;grid-template-columns:2fr 1fr;gap:12px;padding:12px}
     .pane{border:1px solid var(--line);border-radius:10px;overflow:auto}
@@ -51,7 +55,7 @@
 
     .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:saturate(120%) blur(2px);z-index:40}
 
-    .drawer{position:fixed;inset:0 auto 0 0;width:82%;max-width:420px;background:var(--panel);border-right:1px solid var(--line);transform:translateX(-105%);transition:transform .18s ease-out;z-index:50;display:flex;flex-direction:column}
+    .drawer{position:fixed;inset:0 auto 0 0;width:82%;max-width:420px;background:var(--panel);border-right:1px solid #273044;transform:translateX(-105%);transition:transform .18s ease-out;z-index:50;display:flex;flex-direction:column}
     .drawer.open{transform:translateX(0)}
     .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}
     .drawer-title{font-weight:600}
@@ -60,7 +64,6 @@
     .drawer .sec{display:grid;gap:8px}
     .drawer .sec .sec-title{font-size:12px;color:var(--muted);margin:4px 0 2px}
 
-    /* ===== MOBILE UI ===== */
     :root[data-mobile="1"] body{font-size:16px}
     :root[data-mobile="1"] header{display:none}
     :root[data-mobile="0"] #mobileApp{display:none}
@@ -71,7 +74,7 @@
     #mBar{display:flex;align-items:center;gap:10px}
     #mMenu{width:42px;height:42px;border-radius:10px;border:1px solid #2b3342;background:#1e2430;display:flex;align-items:center;justify-content:center}
     #mMenu span{display:block;width:18px;height:2px;background:var(--fg);position:relative}
-    #mMenu span::before,#mMenu span::after{content:"";position:absolute;left:0;width:18px;height:2px;background:var(--fg)}
+    #mMenu span::before,#mMenu span::after{content:"";position:absolute;left:0;width:18px;height:2px;background:var(--fg")}
     #mMenu span::before{top:-6px}#mMenu span::after{top:6px}
 
     #mTitle{font-size:24px;font-weight:800;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -87,8 +90,7 @@
       white-space:pre-wrap;
       overflow:auto;
       height:calc(var(--m-lh) * 1em * var(--m-lines) + 12px);
-      scrollbar-width:none;
-      word-break:break-word;overflow-wrap:break-word;
+      scrollbar-width:none;word-break:break-word;overflow-wrap:break-word;
     }
     #mText::-webkit-scrollbar{display:none}
     #mText .token{padding:4px 6px;border-radius:8px}
@@ -199,11 +201,11 @@
       </div>
       <div class="field ref">
         <div class="lbl">Reference Text (optional)</div>
-        <input id="refFile" type="file" accept=".txt" />
+        <input id="refFile" type="file" accept=".txt,.epub,text/plain,application/epub+zip" />
       </div>
       <div class="actions">
-        <button id="go" class="primary">Transcribe</button>
-        <button id="align">Align &amp; Correct</button>
+        <button id="go" class="primary">Transcribe (current chapter)</button>
+        <button id="align">Align &amp; Correct (current chapter)</button>
       </div>
       <div class="opts">
         <label style="display:flex;gap:8px;align-items:center">
@@ -218,6 +220,33 @@
     </div>
 
     <div class="playerRow"><audio id="playerDesktop" controls></audio></div>
+
+    <!-- ===== DESKTOP CHAPTER CONTROLS ===== -->
+    <section id="chaptersDesktop">
+      <div class="grid">
+        <div>
+          <div class="lbl">Audio chapters (.m4b)</div>
+          <select id="audioChSelD" size="6" style="width:100%"></select>
+          <small id="audioChMetaD">(no audio chapters)</small>
+        </div>
+        <div>
+          <div class="lbl">Text chapters (.epub)</div>
+          <select id="textChSelD" size="6" style="width:100%"></select>
+          <small id="textChMetaD">(no text chapters)</small>
+        </div>
+      </div>
+      <div class="row">
+        <label class="lbl">Start at audio:</label>
+        <input id="mapAudioIdxD" type="number" min="0" step="1" value="0" style="width:80px">
+        <label class="lbl">maps to text:</label>
+        <input id="mapTextIdxD" type="number" min="0" step="1" value="0" style="width:80px">
+        <button id="applyMapD">Apply</button>
+        <small id="mapInfoD">Offset = textStart - audioStart = 0</small>
+        <div style="flex:1"></div>
+        <button id="startChapterModeD" class="primary">Start Chapter Mode</button>
+        <button id="transcribeThisChapterD">Transcribe Selected</button>
+      </div>
+    </section>
   </header>
 
   <div id="overlay" class="overlay" hidden></div>
@@ -231,11 +260,29 @@
 
       <div class="sec" id="secChapters">
         <div class="sec-title">Chapter Mode</div>
-        <div class="lbl">Audio chapters (.m4b)</div>
-        <select id="audioChSel" size="6" style="width:100%"></select>
-        <small id="audioChMeta" style="display:block;margin-top:4px;color:var(--muted)">(no audio chapters)</small>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-          <button id="transcribeThisChapter">Transcribe Selected</button>
+        <div style="display:grid;gap:8px">
+          <div>
+            <div class="lbl">Audio chapters (.m4b)</div>
+            <select id="audioChSel" size="6" style="width:100%"></select>
+            <small id="audioChMeta" style="display:block;margin-top:4px;color:var(--muted)">(no audio chapters)</small>
+          </div>
+          <div>
+            <div class="lbl">Text chapters (.epub)</div>
+            <select id="textChSel" size="6" style="width:100%"></select>
+            <small id="textChMeta" style="display:block;margin-top:4px;color:var(--muted)">(no text chapters)</small>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <label class="lbl">Start at audio:</label>
+            <input id="mapAudioIdx" type="number" min="0" step="1" value="0" style="width:80px">
+            <label class="lbl">maps to text:</label>
+            <input id="mapTextIdx" type="number" min="0" step="1" value="0" style="width:80px">
+            <button id="applyMap">Apply</button>
+          </div>
+          <small id="mapInfo" style="color:var(--muted)">Offset = textStart - audioStart = 0</small>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button id="startChapterMode" class="primary">Start Chapter Mode</button>
+            <button id="transcribeThisChapter">Transcribe Selected</button>
+          </div>
         </div>
       </div>
 
@@ -269,6 +316,8 @@
   <!-- deps -->
   <script src="https://unpkg.com/fflate@0.8.2/umd/index.js"></script>
   <script src="https://unpkg.com/vosk-browser@0.0.8/dist/vosk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/music-metadata-browser@2.5.6/dist/music-metadata-browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <script>
     /* Crash guard: surface JS errors into the Log */
@@ -301,8 +350,16 @@
       mSpeed:$("mSpeed"), mMenu:$("mMenu"),
       speedPopover:$("speedPopover"), speedInput:$("speedInput"), speedApply:$("speedApply"),
       drawer:$("drawer"), overlay:$("overlay"), secFiles:$("secFiles"), secActions:$("secActions"), secSettings:$("secSettings"), closeDrawer:$("closeDrawer"),
-      // chapters
-      audioChSel:$("audioChSel"), audioChMeta:$("audioChMeta"), transcribeThisChapter:$("transcribeThisChapter"),
+      // mobile/drawer chapters
+      secChapters:$("secChapters"),
+      audioChSel:$("audioChSel"), textChSel:$("textChSel"), audioChMeta:$("audioChMeta"), textChMeta:$("textChMeta"),
+      mapAudioIdx:$("mapAudioIdx"), mapTextIdx:$("mapTextIdx"), applyMap:$("applyMap"), mapInfo:$("mapInfo"),
+      startChapterMode:$("startChapterMode"), transcribeThisChapter:$("transcribeThisChapter"),
+      // desktop chapter copies
+      audioChSelD:$("audioChSelD"), textChSelD:$("textChSelD"), audioChMetaD:$("audioChMetaD"), textChMetaD:$("textChMetaD"),
+      mapAudioIdxD:$("mapAudioIdxD"), mapTextIdxD:$("mapTextIdxD"), applyMapD:$("applyMapD"), mapInfoD:$("mapInfoD"),
+      startChapterModeD:$("startChapterModeD"), transcribeThisChapterD:$("transcribeThisChapterD"),
+      // players
       player:$("player")
     };
     function isMobileUA(){
@@ -328,10 +385,19 @@
     let LAST_WORDS=[],PLAY_WORDS=[],HWIN=[],REF_TEXT='',TOKENS=[],MOB_TOKENS=[],CUR_HI=-1,__playTimer=null,ALIGNED_ONCE=false;
     let CURRENT_RATE=1.00;
 
-    // chapter + decode cache
+    // decode cache + chapters
     let DECODE_CACHE=null; // {f32,sr,durationSec,file}
     let AUDIO_CH=[];       // [{title,start,end,index}]
+    let TEXT_CH=[];        // [{title, text, idx}]
+    let MAP_OFFSET=0;      // textIndex - audioIndex
+    let CHAPTER_MODE=false;
     let CURRENT_AUDIO_CH_INDEX=0;
+    let PREFETCHING=false;
+
+    // chapter WAV segment playback (for m4b)
+    let PLAYER_OFFSET=0;        // absolute seconds when player time = 0
+    let PLAYER_IS_SEGMENT=false;// true if using chapter WAV blob
+    let CURRENT_SEGMENT_URL=null;
 
     const NL='\n',ts=()=>new Date().toLocaleTimeString();
     function safe(o){try{if(o==null)return'';if(typeof o==='string')return o;return JSON.stringify(o,(k,v)=>typeof v==='bigint'?String(v):v)}catch{return'[unserializable]'}}
@@ -410,10 +476,9 @@
     function modelCancel(){MODEL_WATCH.canceled=true;addLog('warn','Model load cancel requested')}
     el.cancelModel && (el.cancelModel.onclick=()=>modelCancel());
 
-    // ===== Player helpers & highlight (FIXED — no duplicate const/let) =====
+    /* Player helpers & highlight */
     function normalizeForPlayback(words){
-      const out=words.map(w=>({word:w.word,start:+w.start,end:+w.end,conf:+(w.conf??1)}))
-                     .filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end));
+      const out=words.map(w=>({word:w.word,start:+w.start,end:+w.end,conf:+(w.conf??1)})).filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end));
       if(!out.length) return out;
       for(let i=0;i<out.length;i++){
         const w=out[i], nextStart=i<out.length-1?out[i+1].start:w.end;
@@ -424,70 +489,36 @@
           if(w.end<=w.start) w.end=Math.min(nextStart-GAP_PAD,w.start+MIN_WORD);
         }
       }
-      for(let i=1;i<out.length;i++){
-        if(out[i].start<out[i-1].end+GAP_PAD){
-          out[i].start=Math.min(out[i].start,out[i-1].end+GAP_PAD);
-        }
-      }
-      return out;
+      for(let i=1;i<out.length;i++) if(out[i].start<out[i-1].end+GAP_PAD) out[i].start=Math.min(out[i].start,out[i-1].end+GAP_PAD);
+      return out
     }
-    
-    function buildHighlightWindows(){
-      HWIN=[];
-      const n=PLAY_WORDS.length;
-      if(!n) return;
-      const C=PLAY_WORDS.map(w=>(w.start+w.end)/2);
-      for(let i=0;i<n;i++){
-        let L=i? (C[i-1]+C[i])/2 : (PLAY_WORDS[i].start-HILITE_LEAD);
-        let R=i===n-1? (PLAY_WORDS[i].end+HILITE_LAG) : (C[i]+C[i+1])/2;
-        if(i) L=Math.max(L,HWIN[i-1].end+1e-4);
-        if(R<=L) R=L+1e-3;
-        HWIN[i]={start:L,end:R};
-      }
+    function buildHighlightWindows(){HWIN=[];const n=PLAY_WORDS.length;if(!n)return;const C=PLAY_WORDS.map(w=>(w.start+w.end)/2);for(let i=0;i<n;i++){let L=i? (C[i-1]+C[i])/2 : (PLAY_WORDS[i].start-HILITE_LEAD),R=i===n-1? (PLAY_WORDS[i].end+HILITE_LAG):(C[i]+C[i+1])/2;i&&(L=Math.max(L,HWIN[i-1].end+1e-4));R<=L&&(R=L+1e-3);HWIN[i]={start:L,end:R}}}
+    function currentPlayerAbsoluteTime(){
+      const p=activePlayer();
+      // if segment mode, absolute time = offset + local time
+      return (PLAYER_IS_SEGMENT ? PLAYER_OFFSET : 0) + (p?.currentTime||0) + (ADAPTIVE_ON?driftBias:0);
     }
-    
     function playSegment(start,end){
       const p=activePlayer(); if(!p) return;
       try{
-        const s=Math.max(0,(+start||0)-CLICK_PAD);
-        let e=Math.max(s+CLICK_MIN,+end||s+CLICK_MIN);
-        const dur = (p.duration&&isFinite(p.duration)) ? p.duration : null;
-        if(dur!=null) e=Math.min(e,dur);
-        try{ if(!p.paused) p.pause(); }catch{}
-        if(__playTimer){ clearTimeout(__playTimer); __playTimer=null; }
-        p.currentTime=s;
-        const pr=p.play(); if(pr) pr.catch(()=>{});
-        const playDur=Math.min(e-s,60);
-        __playTimer=setTimeout(()=>{ try{p.pause()}catch{} }, playDur*1e3);
+        // When using segment mode, start/end are absolute; convert to local time if needed
+        let s = PLAYER_IS_SEGMENT ? Math.max(0,(+start - PLAYER_OFFSET) - CLICK_PAD) : Math.max(0,(+start||0)-CLICK_PAD);
+        let e = PLAYER_IS_SEGMENT ? Math.max(s+CLICK_MIN,(+end - PLAYER_OFFSET)||s+CLICK_MIN) : Math.max(s+CLICK_MIN,+end||s+CLICK_MIN);
+        const dur=(p.duration&&isFinite(p.duration))?p.duration:null; dur!=null&&(e=Math.min(e,dur));
+        try{!p.paused&&p.pause()}catch{}
+        __playTimer&&(clearTimeout(__playTimer),__playTimer=null);
+        p.currentTime=s; const pr=p.play(); pr&&pr.catch(()=>{});
+        const playDur=Math.min(e-s,60); __playTimer=setTimeout(()=>{try{p.pause()}catch{}},playDur*1e3);
       }catch{}
     }
-    
-    function currentTimeAdj(){
-      const p=activePlayer();
-      return p.currentTime + (ADAPTIVE_ON ? driftBias : 0);
-    }
-    
-    function findWordIndexAt(t){
-      if(!HWIN.length) return -1;
-      let lo=0,hi=HWIN.length-1;
-      while(lo<=hi){
-        const mid=(lo+hi)>>1, w=HWIN[mid];
-        if(t<w.start) hi=mid-1;
-        else if(t>w.end) lo=mid+1;
-        else return mid;
-      }
-      return -1;
-    }
-    
-    function lerp(a,b,t){ return a+(b-a)*t; }
-    
+    function findWordIndexAt(t){if(!HWIN.length)return-1;let lo=0,hi=HWIN.length-1;for(;lo<=hi;){const mid=lo+hi>>1,w=HWIN[mid];if(t<w.start)hi=mid-1;else if(t>w.end)lo=mid+1;else return mid}return-1}
+    function lerp(a,b,t){return a+(b-a)*t}
     function centerMobileToken(idx, progress01){
       if(!IS_MOBILE || idx<0 || !MOB_TOKENS[idx]) return;
       const cont=el.mText, tok=MOB_TOKENS[idx];
       const desired = Math.max(0, tok.offsetTop - (cont.clientHeight/2 - tok.clientHeight/2));
       cont.scrollTop = lerp(cont.scrollTop, desired, Math.min(0.35, 0.15 + progress01*0.5));
     }
-    
     function setHighlight(i){
       if(i===CUR_HI) return;
       if(CUR_HI>=0){
@@ -500,73 +531,74 @@
         MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.add('playing');
         if(TOKENS[CUR_HI] && el.text){
           const t=TOKENS[CUR_HI], r=t.getBoundingClientRect(), host=el.text.getBoundingClientRect();
-          if(r.top<host.top+8 || r.bottom>host.bottom-8){
-            t.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'});
-          }
+          (r.top<host.top+8||r.bottom>host.bottom-8)&&t.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'})
         }
       }
     }
-    
     function adaptiveUpdate(idx){
       const p=activePlayer();
-      if(!ADAPTIVE_ON || idx<0) return;
-      const w=PLAY_WORDS[idx], mid=(w.start+w.end)/2, err=mid-p.currentTime;
-      const next=driftBias*(1-DRIFT_ALPHA)+err*DRIFT_ALPHA;
-      driftBias=Math.max(-DRIFT_CLAMP,Math.min(DRIFT_CLAMP,next));
+      if(!ADAPTIVE_ON||idx<0) return;
+      const w=PLAY_WORDS[idx], mid=(w.start+w.end)/2, err=mid-((PLAYER_IS_SEGMENT?PLAYER_OFFSET:0)+(p?.currentTime||0));
+      const next=driftBias*(1-DRIFT_ALPHA)+err*DRIFT_ALPHA; driftBias=Math.max(-DRIFT_CLAMP,Math.min(DRIFT_CLAMP,next))
     }
-    
     function updateHighlightFromPlayer(){
       const p=activePlayer();
       if(IS_MOBILE) setMobileTimes();
-      if(!PLAY_WORDS.length){ setHighlight(-1); return; }
-      const t=currentTimeAdj(), idx=findWordIndexAt(t);
-      setHighlight(idx);
-      adaptiveUpdate(idx);
+      if(!PLAY_WORDS.length){setHighlight(-1);return}
+      const t=currentPlayerAbsoluteTime();
+      const idx=findWordIndexAt(t); setHighlight(idx); adaptiveUpdate(idx);
       if(IS_MOBILE && idx>=0){
         const w=PLAY_WORDS[idx];
         const prog=(t - w.start) / Math.max(1e-6,(w.end - w.start));
         centerMobileToken(idx, Math.max(0,Math.min(1,prog)));
       }
+
+      // Prefetch next chapter (80% into current)
+      if (CHAPTER_MODE && AUDIO_CH.length) {
+        const ch=AUDIO_CH[CURRENT_AUDIO_CH_INDEX]; if(!ch) return;
+        const chDur=(ch.end-ch.start);
+        if(!PREFETCHING && chDur>1 && ((t - ch.start) > 0.8*chDur) ){
+          const nextIdx=CURRENT_AUDIO_CH_INDEX+1;
+          if(nextIdx<AUDIO_CH.length) {
+            PREFETCHING=true;
+            const nextTextIdx = nextIdx + MAP_OFFSET;
+            const refTxt = TEXT_CH[nextTextIdx]?.text || '';
+            runChapter(nextIdx, false, refTxt).finally(()=>{PREFETCHING=false});
+          }
+        }
+      }
     }
-    
-    // keep these listeners (they weren’t the problem)
     ['timeupdate','seeked','ratechange','seeking'].forEach(ev=>{
       el.player?.addEventListener(ev,updateHighlightFromPlayer);
       el.playerDesktop?.addEventListener(ev,updateHighlightFromPlayer);
     });
-    let __raf=null;
-    function startHiLoop(){
-      if(__raf) return;
-      const step=()=>{ updateHighlightFromPlayer(); __raf=requestAnimationFrame(step); };
-      __raf=requestAnimationFrame(step);
-    }
-    function stopHiLoop(){ if(__raf){ cancelAnimationFrame(__raf); __raf=null; } }
+    let __raf=null;function startHiLoop(){if(__raf)return;const step=()=>{updateHighlightFromPlayer();__raf=requestAnimationFrame(step)};__raf=requestAnimationFrame(step)}
+    function stopHiLoop(){__raf&&(cancelAnimationFrame(__raf),__raf=null)}
     el.player?.addEventListener('play',startHiLoop);
     el.player?.addEventListener('pause',stopHiLoop);
-    el.player?.addEventListener('ended',()=>{ stopHiLoop(); setHighlight(-1); });
+    el.player?.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1)});
     el.playerDesktop?.addEventListener('play',startHiLoop);
     el.playerDesktop?.addEventListener('pause',stopHiLoop);
-    el.playerDesktop?.addEventListener('ended',()=>{ stopHiLoop(); setHighlight(-1); });
-    el.adaptiveToggle?.addEventListener('change',()=>{
-      ADAPTIVE_ON=!!el.adaptiveToggle.checked;
-      if(!ADAPTIVE_ON) driftBias=0;
-      addLog('info','Adaptive '+(ADAPTIVE_ON?'on':'off'),{bias:driftBias});
-    });
+    el.playerDesktop?.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1)});
+    el.adaptiveToggle?.addEventListener('change',()=>{ADAPTIVE_ON=!!el.adaptiveToggle.checked;ADAPTIVE_ON||(driftBias=0);addLog('info','Adaptive '+(ADAPTIVE_ON?'on':'off'),{bias:driftBias})});
 
     /* File I/O */
+    function revokeSegmentUrl(){
+      if(CURRENT_SEGMENT_URL){ URL.revokeObjectURL(CURRENT_SEGMENT_URL); CURRENT_SEGMENT_URL=null; }
+    }
     function attachAudioFile(file){
       if(!file) return;
       AUDIO_FILE=file;
       addLog('info','Audio selected',{name:file.name,size:file.size,type:file.type});
       try{
         const url=URL.createObjectURL(file);
-        const p=activePlayer(); if (p){ p.src=url; p.load(); }
+        const p=activePlayer(); if (p){ revokeSegmentUrl(); PLAYER_IS_SEGMENT=false; PLAYER_OFFSET=0; p.src=url; p.load(); }
         if(IS_MOBILE){ el.mTitle.textContent=file.name || 'Audio' } else { el.audioTitle && (el.audioTitle.textContent=file.name || 'Audio') }
       }catch(e){ addLog('warn','Attach audio failed',String(e)) }
       REF_TEXT=''; el.refFile && (el.refFile.value=''); ALIGNED_ONCE=false; refreshAlignButton(); addLog('info','Reference cleared for new audio');
 
       // reset chapter + decode cache
-      AUDIO_CH=[]; CURRENT_AUDIO_CH_INDEX=0; populateAudioChapterUI();
+      AUDIO_CH=[]; CURRENT_AUDIO_CH_INDEX=0; populateAudioChapterUI(); populateAudioChapterUIDesktop();
       DECODE_CACHE=null;
 
       // parse chapters if m4b
@@ -575,7 +607,22 @@
       }
     }
     el.audioFile && (el.audioFile.onchange=()=>attachAudioFile(el.audioFile.files?.[0]||null));
-    el.refFile && (el.refFile.onchange=async()=>{const f=el.refFile.files?.[0];if(!f){REF_TEXT='';ALIGNED_ONCE=false;refreshAlignButton();return}try{const txt=await f.text();REF_TEXT=txt;addLog('info','Reference text loaded',{chars:txt.length})}catch(e){addLog('error','Read ref text failed',String(e));REF_TEXT=''}ALIGNED_ONCE=false;refreshAlignButton()});
+
+    el.refFile && (el.refFile.onchange=async()=>{
+      const f=el.refFile.files?.[0]; if(!f){REF_TEXT='';ALIGNED_ONCE=false;refreshAlignButton();TEXT_CH=[];populateTextChapterUI();populateTextChapterUIDesktop();return}
+      const name=f.name.toLowerCase();
+      if(name.endsWith('.epub')){
+        TEXT_CH=[]; populateTextChapterUI(); populateTextChapterUIDesktop();
+        try{ await parseEpubChapters(f); addLog('info','EPUB chapters', {count:TEXT_CH.length}); }
+        catch(e){ addLog('error','EPUB parse failed', String(e)); }
+        ALIGNED_ONCE=false; refreshAlignButton();
+      }else{
+        try{ const txt=await f.text(); REF_TEXT=txt; addLog('info','Reference text loaded',{chars:txt.length}); TEXT_CH=[{title:f.name,text:txt,idx:0}]; populateTextChapterUI(); populateTextChapterUIDesktop(); }
+        catch(e){ addLog('error','Read ref text failed',String(e)); REF_TEXT=''; TEXT_CH=[]; populateTextChapterUI(); populateTextChapterUIDesktop(); }
+        ALIGNED_ONCE=false; refreshAlignButton();
+      }
+    });
+
     el.copy && (el.copy.onclick=async()=>{await navigator.clipboard.writeText(LOG.join(NL));addLog('info','Log copied')});
     el.save && (el.save.onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([LOG.join(NL)],{type:'text/plain'}));a.download='offline_vosk_log.txt';a.click()});
 
@@ -640,24 +687,45 @@
     }
 
     // audio decode + resample
-    async function decodeToMonoF32(file){const buf=await file.arrayBuffer(),AC=window.AudioContext||window.webkitAudioContext,cx=new AC(),ab=await cx.decodeAudioData(buf),chs=ab.numberOfChannels,sr=ab.sampleRate,frames=ab.length;addLog('info','Audio decoded',{sr,chs,frames,secs:ab.duration.toFixed(3)});const mono=new Float32Array(frames);for(let c=0;c<chs;c++){const data=ab.getChannelData(c);for(let i=0;i<frames;i++)mono[i]+=data[i]/chs}const target=16000,res=resampleF32(mono,sr,target);addLog('info','Resampled',{from:sr,to:target,samples:res.length});await cx.close();return{f32:res,sr:target}}
+    async function decodeToMonoF32(file){
+      const buf=await file.arrayBuffer(),AC=window.AudioContext||window.webkitAudioContext,cx=new AC(),ab=await cx.decodeAudioData(buf),chs=ab.numberOfChannels,sr=ab.sampleRate,frames=ab.length;addLog('info','Audio decoded',{sr,chs,frames,secs:ab.duration.toFixed(3)});
+      const mono=new Float32Array(frames);for(let c=0;c<chs;c++){const data=ab.getChannelData(c);for(let i=0;i<frames;i++)mono[i]+=data[i]/chs}
+      const target=16000,res=resampleF32(mono,sr,target);addLog('info','Resampled',{from:sr,to:target,samples:res.length});await cx.close();return{f32:res,sr:target}
+    }
     function resampleF32(input,src,dst){if(src===dst)return input;const ratio=dst/src,outLen=Math.round(input.length*ratio),out=new Float32Array(outLen);for(let i=0;i<outLen;i++){const x=i/ratio,xi=Math.floor(x),t=x-xi,a=input[xi]||0,b=input[xi+1]||0;out[i]=a+(b-a)*t}return out}
     function floatToInt16(f32){const i16=new Int16Array(f32.length);for(let i=0;i<f32.length;i++){let s=Math.max(-1,Math.min(1,f32[i]));i16[i]=s<0?Math.round(s*32768):Math.round(s*32767)}return i16}
+
+    /* ===== WAV segment encoder for playback (m4b friendliness) ===== */
+    function f32ToWavBlob(f32, sampleRate){
+      const numFrames=f32.length, numChannels=1, bytesPerSample=2, blockAlign=numChannels*bytesPerSample, byteRate=sampleRate*blockAlign;
+      const buffer=new ArrayBuffer(44 + numFrames*bytesPerSample); const dv=new DataView(buffer);
+      let off=0;
+      function w8(v){dv.setUint8(off,v);off+=1}
+      function w16(v){dv.setUint16(off,v,true);off+=2}
+      function w32(v){dv.setUint32(off,v,true);off+=4}
+      // RIFF/WAVE header
+      w8(0x52);w8(0x49);w8(0x46);w8(0x46); // 'RIFF'
+      w32(36 + numFrames*bytesPerSample);
+      w8(0x57);w8(0x41);w8(0x56);w8(0x45); // 'WAVE'
+      w8(0x66);w8(0x6d);w8(0x74);w8(0x20); // 'fmt '
+      w32(16); w16(1); // PCM
+      w16(numChannels); w32(sampleRate); w32(byteRate); w16(blockAlign); w16(bytesPerSample*8);
+      w8(0x64);w8(0x61);w8(0x74);w8(0x61); // 'data'
+      w32(numFrames*bytesPerSample);
+      const i16=new Int16Array(buffer,44,numFrames);
+      for(let i=0;i<numFrames;i++){let s=Math.max(-1,Math.min(1,f32[i]));i16[i]=s<0?(s*0x8000):(s*0x7FFF)}
+      return new Blob([buffer],{type:'audio/wav'});
+    }
 
     /* Run */
     function refreshAlignButton(){
       if(!el.align) return;
-      if(!REF_TEXT||!REF_TEXT.trim()){el.align.disabled=true;el.align.textContent='Align & Correct';el.align.title='Select a reference text to enable'}
-      else{el.align.disabled=false;el.align.textContent=ALIGNED_ONCE?'Re-Align':'Align & Correct';el.align.title=ALIGNED_ONCE?'Run alignment again':'Align transcript to reference'}
+      if(!REF_TEXT||!REF_TEXT.trim()){el.align.disabled=true;el.align.textContent='Align & Correct (current chapter)';el.align.title='Select a reference text to enable'}
+      else{el.align.disabled=false;el.align.textContent=ALIGNED_ONCE?'Re-Align (current chapter)':'Align & Correct (current chapter)';el.align.title=ALIGNED_ONCE?'Run alignment again':'Align transcript to reference'}
     }
 
-    // --- chapter-aware run ---
-    async function runChapter(chIndex=null){
-      LOG.length=0; el.log && (el.log.textContent='(log starts here)');
-      el.text && (el.text.textContent='(no transcript yet)'); el.tb && (el.tb.innerHTML='');
-      el.mText && (el.mText.textContent='(no transcript yet)');
-      setProg(0);
-      if(!AUDIO_FILE){alert('Choose an audio file (hamburger ▶ Files).');setDrawer(true);return}
+    // --- chapter-aware run; can also prepare a WAV segment for the player ---
+    async function runChapter(chIndex=null, makeActive=true, overrideRef=''){
       const model=await ensureModel(); if(!model) return;
 
       const cache=await ensureDecode();
@@ -673,12 +741,36 @@
         addLog('info','Transcribing full file',{secs:cache.durationSec.toFixed(3)});
       }
 
+      // Build chapter slice for recognizer (always uses PCM in memory)
       const sr=cache.sr;
       const startFrame = Math.floor(startSec*sr);
       const endFrame   = Math.floor(endSec*sr);
       const f32Slice = cache.f32.subarray(startFrame, endFrame);
       const i16Slice = floatToInt16(f32Slice);
       const sliceDurSec = (f32Slice.length)/sr;
+
+      // For playback: if original file is .m4b, swap audio element to a WAV blob of the chapter
+      const isM4B = (AUDIO_FILE?.name||'').toLowerCase().endsWith('.m4b');
+      if(makeActive){
+        const p=activePlayer();
+        try{ p.pause(); }catch{}
+        p.playbackRate=CURRENT_RATE;
+        if(isM4B){
+          revokeSegmentUrl();
+          const wavBlob = f32ToWavBlob(f32Slice, sr);
+          CURRENT_SEGMENT_URL = URL.createObjectURL(wavBlob);
+          p.src = CURRENT_SEGMENT_URL;
+          p.load();
+          PLAYER_IS_SEGMENT=true;
+          PLAYER_OFFSET=startSec; // local time 0 == absolute startSec
+          addLog('info','Player using WAV chapter segment',{start:startSec,end:endSec,dur:sliceDurSec.toFixed(3)});
+        }else{
+          // use original full file; seek to chapter start
+          PLAYER_IS_SEGMENT=false; PLAYER_OFFSET=0; revokeSegmentUrl();
+          // keep p.src as original file blob
+          if(Number.isFinite(startSec)) p.currentTime=startSec;
+        }
+      }
 
       setStatus(`Creating recognizer…`); destroyRecognizer();
       try{RECOG=model.KaldiRecognizer?new model.KaldiRecognizer(sr):new model.Recognizer(sr)}catch(e){addLog('error','Recognizer create failed',String(e));alert('Recognizer create failed — see log');return}
@@ -726,33 +818,43 @@
       for(let k=0;k<2;k++){await new Promise(r=>setTimeout(r,100));pullAll()}
 
       const seen=new Set(),rawWords=fromEvents.filter(w=>w&&w.word).map(w=>({word:String(w.word).trim(),start:+w.start,end:+w.end,conf:+w.conf})).filter(w=>w.word&&Number.isFinite(w.start)&&Number.isFinite(w.end)).sort((a,b)=>a.start-b.start).filter(w=>{const k=`${w.start}|${w.end}|${w.word}`;if(seen.has(k))return false;seen.add(k);return true});
-      // shift to absolute file time so highlights match player
+      // shift to absolute file time so highlights match absolute timeline
       LAST_WORDS=rawWords.map(w=>({word:w.word,start:w.start+startSec,end:w.end+startSec,conf:w.conf}));
 
-      let autoAligned=false;
-      if(REF_TEXT&&REF_TEXT.trim().length){
+      // optional per-chapter alignment (EPUB/TXT)
+      const refTxt = overrideRef || (TEXT_CH[(CURRENT_AUDIO_CH_INDEX + MAP_OFFSET)]?.text || REF_TEXT || '');
+      if(refTxt && refTxt.trim().length){
         try{
-          const corrected=alignAndCorrect(LAST_WORDS,REF_TEXT);
-          addLog('info','Auto Align & Correct',{orig:LAST_WORDS.length,corrected:corrected.length});
-          LAST_WORDS=corrected; autoAligned=true; ALIGNED_ONCE=true; refreshAlignButton();
-        }catch(e){addLog('warn','Auto align failed',String(e))}
+          const corrected=alignAndCorrect(LAST_WORDS,refTxt);
+          addLog('info','Align & Correct',{orig:LAST_WORDS.length,corrected:corrected.length});
+          LAST_WORDS=corrected; ALIGNED_ONCE=true; refreshAlignButton();
+        }catch(e){addLog('warn','Align failed',String(e))}
       }
 
       PLAY_WORDS=normalizeForPlayback(LAST_WORDS); buildHighlightWindows();
-      addLog('info','Totals',{chunks:n,words:LAST_WORDS.length,secs:durSec.toFixed(2)});
       render(PLAY_WORDS);
       setProg(100);
       setStatus(`<span class="accent">Done</span> ${LAST_WORDS.length} words — ${title}`);
       updateHighlightFromPlayer();
 
-      const p=activePlayer(); p && (p.playbackRate=CURRENT_RATE);
-      // Seek to chapter start for convenience, but don't autoplay (keeps original UX)
-      if(Number.isInteger(chIndex) && AUDIO_CH[chIndex]){ try{ p.pause(); }catch{} p.currentTime=startSec; }
+      // Seek/offset already handled above when makeActive
     }
 
-    async function run(){ return runChapter(null); } // full file (original button)
+    async function run(){ // whole file or the currently selected chapter (if in chapter mode)
+      LOG.length=0; el.log && (el.log.textContent='(log starts here)');
+      el.text && (el.text.textContent='(no transcript yet)'); el.tb && (el.tb.innerHTML='');
+      el.mText && (el.mText.textContent='(no transcript yet)');
+      setProg(0);
+      if(!AUDIO_FILE){alert('Choose an audio file (hamburger ▶ Files).');setDrawer(true);return}
+      if (CHAPTER_MODE && AUDIO_CH.length){
+        const textIdx = CURRENT_AUDIO_CH_INDEX + MAP_OFFSET;
+        const refTxt = TEXT_CH[textIdx]?.text || '';
+        return runChapter(CURRENT_AUDIO_CH_INDEX, true, refTxt);
+      }
+      return runChapter(null,true,'');
+    }
 
-    /* Align & render (UNCHANGED) */
+    /* Align & render */
     function normalizeToken(s){return String(s).toLowerCase().replace(/[^a-z]+/g,'')}
     function tokenizeReference(text){return text.split(/\s+/).filter(Boolean).map(tok=>{const norm=normalizeToken(tok);return norm?{raw:tok,norm}:null}).filter(Boolean)}
     function levenshtein(a,b){const m=a.length,n=b.length,dp=new Array(n+1);for(let j=0;j<=n;j++)dp[j]=j;for(let i=1;i<=m;i++){let prev=dp[0];dp[0]=i;for(let j=1;j<=n;j++){const ins=dp[j]+1,del=dp[j-1]+1,sub=prev+(a[i-1]===b[j-1]?0:1);prev=dp[j];dp[j]=Math.min(ins,del,sub)}}return dp[n]}
@@ -780,7 +882,7 @@
       return out
     }
     function fmt(t){if(!isFinite(t))return'';const s=t|0,ms=Math.round((t-(t|0))*1e3).toString().padStart(3,'0'),m=(s/60|0).toString().padStart(2,'0'),ss=(s%60).toString().padStart(2,'0');return`${m}:${ss}.${ms}`}
-    function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;"}[c]))}
+    function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))}
 
     function render(words){
       // desktop transcript + table
@@ -803,7 +905,7 @@
           words.forEach((w,i)=>{i&&frag2.append(' ');const sp=document.createElement('span');sp.className='token';sp.dataset.idx=String(i);sp.textContent=w.word;frag2.append(sp)});
           m.append(frag2); MOB_TOKENS=Array.from(m.querySelectorAll('.token'));
         }
-        el.mChapterLen.textContent = words.length ? fmt(words[words.length-1].end).slice(0,5) : '—';
+        el.mChapterLen.textContent = words.length ? fmt(words[words.length-1].end - (AUDIO_CH[CURRENT_AUDIO_CH_INDEX]?.start||0)).slice(0,5) : '—';
         el.mChapterIdx.textContent = AUDIO_CH.length ? String((CURRENT_AUDIO_CH_INDEX+1)).padStart(3,'0') : '—';
         el.mChapterClock.textContent = AUDIO_CH.length ? fmt(AUDIO_CH[CURRENT_AUDIO_CH_INDEX].start).slice(0,5) : '—';
       }
@@ -815,23 +917,7 @@
     el.tb?.addEventListener('click',ev=>{const b=ev.target.closest('.playbtn');if(!b)return;const idx=+b.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
     el.mText?.addEventListener('click',ev=>{const t=ev.target.closest('.token');if(!t)return;const idx=+t.dataset.idx,w=PLAY_WORDS[idx];if(!w)return;playSegment(w.start,w.end)});
 
-    /* Init */
-    addLog('info','Ready. Auto-detecting model in background (no model UI).');
-    addLog('info','Env',{ua:navigator.userAgent,deviceMemory:navigator.deviceMemory||null});
-    el.go && (el.go.onclick=()=>run().catch(e=>addLog('error','Top level failure',String(e))));
-    el.align && (el.align.onclick=()=>{try{if(!LAST_WORDS.length){alert('Transcribe first');return}if(!REF_TEXT){alert('Choose a reference .txt');return}const corrected=alignAndCorrect(LAST_WORDS,REF_TEXT);addLog('info','Alignment complete',{orig:LAST_WORDS.length,corrected:corrected.length});LAST_WORDS=corrected;PLAY_WORDS=normalizeForPlayback(LAST_WORDS);buildHighlightWindows();render(PLAY_WORDS);updateHighlightFromPlayer();ALIGNED_ONCE=true;refreshAlignButton()}catch(e){addLog('error','Align failed',String(e));alert('Align failed — see log')}});
-    refreshAlignButton();
-
-    if(IS_MOBILE){
-      const p=activePlayer();
-      el.mPrev&&(el.mPrev.onclick=()=>{p.currentTime=Math.max(0,p.currentTime-10)});
-      el.mNext&&(el.mNext.onclick=()=>{if(isFinite(p.duration)) p.currentTime=Math.min(p.duration,p.currentTime+10)});
-      el.mPlay&&(el.mPlay.onclick=()=>{p.paused?p.play():p.pause(); el.mPlay.textContent=p.paused?'▶':'⏸'});
-      p.addEventListener('play',()=>{el.mPlay.textContent='⏸'; setRate(CURRENT_RATE)});
-      p.addEventListener('pause',()=>{el.mPlay.textContent='▶'});
-    }
-
-    /* ===== Chapters UI ===== */
+    /* ===== Chapters UI (drawer) ===== */
     function populateAudioChapterUI(){
       const sel=el.audioChSel; if(!sel) return; sel.innerHTML='';
       if(!AUDIO_CH.length){el.audioChMeta.textContent='(no audio chapters)'; return;}
@@ -839,10 +925,77 @@
       el.audioChMeta.textContent=`${AUDIO_CH.length} audio chapters`;
       sel.value=String(CURRENT_AUDIO_CH_INDEX);
     }
+    function populateTextChapterUI(){
+      const sel=el.textChSel; if(!sel) return; sel.innerHTML='';
+      if(!TEXT_CH.length){el.textChMeta.textContent='(no text chapters)'; return;}
+      TEXT_CH.forEach((c,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${(i+1).toString().padStart(3,'0')}  ${c.title}`; sel.appendChild(o)});
+      el.textChMeta.textContent=`${TEXT_CH.length} text chapters`;
+    }
+    function updateMapInfo(){
+      const a=+el.mapAudioIdx.value|0, t=+el.mapTextIdx.value|0;
+      MAP_OFFSET = t - a;
+      el.mapInfo.textContent=`Offset = textStart - audioStart = ${MAP_OFFSET}`;
+      // keep desktop fields in sync
+      if(el.mapAudioIdxD) el.mapAudioIdxD.value=a;
+      if(el.mapTextIdxD) el.mapTextIdxD.value=t;
+      if(el.mapInfoD) el.mapInfoD.textContent=el.mapInfo.textContent;
+    }
+    el.applyMap?.addEventListener('click',updateMapInfo);
+    el.startChapterMode?.addEventListener('click',()=>{
+      CHAPTER_MODE=true;
+      CURRENT_AUDIO_CH_INDEX = Math.max(0, +el.mapAudioIdx.value|0);
+      const p=activePlayer();
+      if (AUDIO_CH.length){
+        const ch=AUDIO_CH[CURRENT_AUDIO_CH_INDEX];
+        // Prepare WAV segment if m4b
+        runChapter(CURRENT_AUDIO_CH_INDEX,true, TEXT_CH[CURRENT_AUDIO_CH_INDEX + MAP_OFFSET]?.text || '').catch(()=>{});
+      } else { alert('No audio chapters loaded'); }
+    });
     el.transcribeThisChapter?.addEventListener('click',()=>{
       const idx = +el.audioChSel.value|0;
-      if(Number.isFinite(idx)){ CURRENT_AUDIO_CH_INDEX=idx; runChapter(idx).catch(e=>addLog('error','Chapter run failed',String(e))); }
+      if(Number.isFinite(idx)){ CURRENT_AUDIO_CH_INDEX=idx; const refTxt=TEXT_CH[idx + MAP_OFFSET]?.text || ''; runChapter(idx,true,refTxt); }
     });
+    el.audioChSel?.addEventListener('change',()=>{ const idx=+el.audioChSel.value|0; CURRENT_AUDIO_CH_INDEX=idx; if(el.mapAudioIdx){ el.mapAudioIdx.value=idx; updateMapInfo(); } syncDesktopChSelectors(); });
+    el.textChSel?.addEventListener('change',()=>{ const idx=+el.textChSel.value|0; if(el.mapTextIdx){ el.mapTextIdx.value=idx; updateMapInfo(); } syncDesktopChSelectors(); });
+
+    /* ===== Desktop chapter UI (mirrors drawer) ===== */
+    function populateAudioChapterUIDesktop(){
+      const sel=el.audioChSelD; if(!sel) return; sel.innerHTML='';
+      if(!AUDIO_CH.length){el.audioChMetaD.textContent='(no audio chapters)'; return;}
+      AUDIO_CH.forEach((c,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${(i+1).toString().padStart(3,'0')}  ${c.title}  (${fmt(c.start).slice(0,5)}–${fmt(c.end).slice(0,5)})`; sel.appendChild(o)});
+      el.audioChMetaD.textContent=`${AUDIO_CH.length} audio chapters`;
+      sel.value=String(CURRENT_AUDIO_CH_INDEX);
+    }
+    function populateTextChapterUIDesktop(){
+      const sel=el.textChSelD; if(!sel) return; sel.innerHTML='';
+      if(!TEXT_CH.length){el.textChMetaD.textContent='(no text chapters)'; return;}
+      TEXT_CH.forEach((c,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${(i+1).toString().padStart(3,'0')}  ${c.title}`; sel.appendChild(o)});
+      el.textChMetaD.textContent=`${TEXT_CH.length} text chapters`;
+    }
+    function syncDesktopChSelectors(){
+      if(el.audioChSelD && el.audioChSel) el.audioChSelD.value = el.audioChSel.value;
+      if(el.textChSelD && el.textChSel) el.textChSelD.value = el.textChSel.value;
+    }
+    function updateMapInfoDesktop(){
+      const a=+el.mapAudioIdxD.value|0, t=+el.mapTextIdxD.value|0;
+      MAP_OFFSET = t - a;
+      el.mapInfoD.textContent=`Offset = textStart - audioStart = ${MAP_OFFSET}`;
+      if(el.mapAudioIdx) el.mapAudioIdx.value=a;
+      if(el.mapTextIdx) el.mapTextIdx.value=t;
+      if(el.mapInfo) el.mapInfo.textContent=el.mapInfoD.textContent;
+    }
+    el.applyMapD?.addEventListener('click',updateMapInfoDesktop);
+    el.startChapterModeD?.addEventListener('click',()=>{
+      CHAPTER_MODE=true;
+      CURRENT_AUDIO_CH_INDEX = Math.max(0, +el.mapAudioIdxD.value|0);
+      runChapter(CURRENT_AUDIO_CH_INDEX,true, TEXT_CH[CURRENT_AUDIO_CH_INDEX + MAP_OFFSET]?.text || '').catch(()=>{});
+    });
+    el.transcribeThisChapterD?.addEventListener('click',()=>{
+      const idx = +el.audioChSelD.value|0;
+      if(Number.isFinite(idx)){ CURRENT_AUDIO_CH_INDEX=idx; const refTxt=TEXT_CH[idx + MAP_OFFSET]?.text || ''; runChapter(idx,true,refTxt); }
+    });
+    el.audioChSelD?.addEventListener('change',()=>{ const idx=+el.audioChSelD.value|0; CURRENT_AUDIO_CH_INDEX=idx; if(el.audioChSel){ el.audioChSel.value=String(idx); } if(el.mapAudioIdx){ el.mapAudioIdx.value=idx; updateMapInfo(); } });
+    el.textChSelD?.addEventListener('change',()=>{ const idx=+el.textChSelD.value|0; if(el.textChSel){ el.textChSel.value=String(idx); } if(el.mapTextIdx){ el.mapTextIdx.value=idx; updateMapInfo(); } });
 
     /* ===== m4b chapter parsing (QuickTime text-track → Nero chpl) ===== */
     function readBoxes(dv, start, end){
@@ -1061,7 +1214,7 @@
         if(textRes.entries.length){
           addLog('info',`Found QuickTime text-track chapters. ${textRes.debug}`);
           AUDIO_CH = withStops(textRes.entries.sort((a,b)=>a.startSeconds-b.startSeconds), dur);
-          populateAudioChapterUI(); return;
+          populateAudioChapterUI(); populateAudioChapterUIDesktop(); return;
         }
 
         const udta=findPath(root,["moov","udta"]);
@@ -1070,18 +1223,132 @@
           const chplRes=parseChpl(dv,chpl,dur||null);
           addLog('info',`Found Nero chpl. ${chplRes.debug}`);
           AUDIO_CH = withStops(chplRes.entries.sort((a,b)=>a.startSeconds-b.startSeconds), dur);
-          populateAudioChapterUI(); return;
+          populateAudioChapterUI(); populateAudioChapterUIDesktop(); return;
         }
 
         addLog('warn','No chapters found; using single chapter');
         AUDIO_CH = [{title:file.name,start:0,end:dur||999999,index:1}];
-        populateAudioChapterUI();
+        populateAudioChapterUI(); populateAudioChapterUIDesktop();
       }catch(e){
         addLog('warn','m4b parse failed — single chapter', String(e));
         AUDIO_CH=[{title:file.name,start:0,end:999999,index:1}];
-        populateAudioChapterUI();
+        populateAudioChapterUI(); populateAudioChapterUIDesktop();
       }
     }
+
+    /* ===== EPUB chapters via JSZip + DOMParser (OPF/NCX/NAV) ===== */
+    async function parseEpubChapters(file){
+      addLog('info','Parsing EPUB container…');
+      const zip = await JSZip.loadAsync(file);
+      const containerXml = await zip.file('META-INF/container.xml')?.async('text');
+      if(!containerXml){ addLog('error','container.xml missing in EPUB'); TEXT_CH=[]; populateTextChapterUI(); populateTextChapterUIDesktop(); return; }
+      const dp=new DOMParser();
+      const containerDoc = dp.parseFromString(containerXml,'application/xml');
+      const rootfile = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
+      if(!rootfile){ addLog('error','OPF path missing'); TEXT_CH=[]; populateTextChapterUI(); populateTextChapterUIDesktop(); return; }
+      const opfText = await zip.file(rootfile)?.async('text');
+      if(!opfText){ addLog('error','OPF not found'); TEXT_CH=[]; populateTextChapterUI(); populateTextChapterUIDesktop(); return; }
+      const opfDoc = dp.parseFromString(opfText,'application/xml');
+      const opfDir = rootfile.split('/').slice(0,-1).join('/');
+      const resolveHref = (href)=> (opfDir?opfDir+'/':'') + href;
+
+      const manifest = {};
+      opfDoc.querySelectorAll('manifest > item').forEach(it=>{
+        manifest[it.getAttribute('id')] = {
+          href: it.getAttribute('href'),
+          type: it.getAttribute('media-type')
+        };
+      });
+      const spineIds = Array.from(opfDoc.querySelectorAll('spine > itemref')).map(n=>n.getAttribute('idref')).filter(Boolean);
+
+      async function extractFromNav(item){
+        const href = resolveHref(item.href);
+        const navHtml = await zip.file(href)?.async('text');
+        if(!navHtml) return [];
+        const doc = dp.parseFromString(navHtml,'text/html');
+        const tocNav = doc.querySelector('nav[epub\\:type="toc"], nav[type="toc"], nav[role="doc-toc"]') || doc.querySelector('nav');
+        if(!tocNav) return [];
+        const items=[];
+        tocNav.querySelectorAll('li > a').forEach((a,i)=>{
+          const title=(a.textContent||`Chapter ${i+1}`).trim();
+          const link=a.getAttribute('href')||'';
+          items.push({title, href: link});
+        });
+        return items;
+      }
+      async function extractFromNCX(ncxItem){
+        const href = resolveHref(ncxItem.href);
+        const ncxXml = await zip.file(href)?.async('text'); if(!ncxXml) return [];
+        const doc = dp.parseFromString(ncxXml,'application/xml');
+        const items=[];
+        doc.querySelectorAll('navMap navPoint').forEach((np,i)=>{
+          const title = (np.querySelector('navLabel text')?.textContent || `Chapter ${i+1}`).trim();
+          const src = np.querySelector('content')?.getAttribute('src') || '';
+          items.push({title, href: src});
+        });
+        return items;
+      }
+
+      let tocEntries=[];
+      const navEntry = Object.values(manifest).find(m=>/xhtml|html/i.test(m.type)&&/nav/i.test(m.type) || /nav\.x?html$/i.test(m.href));
+      if(navEntry){ tocEntries = await extractFromNav(navEntry); }
+      if(!tocEntries.length){
+        const ncxEntry = Object.values(manifest).find(m=>/application\/x-dtbncx\+xml/i.test(m.type) || /\.ncx$/i.test(m.href));
+        if(ncxEntry) tocEntries = await extractFromNCX(ncxEntry);
+      }
+      if(!tocEntries.length){
+        tocEntries = spineIds.map((id,idx)=>({title:`Chapter ${idx+1}`, href: manifest[id]?.href || ''}));
+      }
+
+      async function readContent(hrefRaw){
+        if(!hrefRaw) return '';
+        const href = resolveHref(hrefRaw.split('#')[0]);
+        const html = await zip.file(href)?.async('text'); if(!html) return '';
+        const doc = dp.parseFromString(html,'text/html');
+        doc.querySelectorAll('script,style,noscript').forEach(n=>n.remove());
+        return (doc.body?.textContent||'').replace(/\s+/g,' ').trim();
+      }
+
+      const out=[];
+      for(let i=0;i<tocEntries.length;i++){
+        const it=tocEntries[i];
+        const text=await readContent(it.href);
+        if(text && text.length>0) out.push({title:it.title, text, idx:i});
+      }
+      TEXT_CH=out;
+      populateTextChapterUI(); populateTextChapterUIDesktop();
+      addLog('info','EPUB chapters parsed',{count:TEXT_CH.length});
+    }
+
+    /* ===== Init ===== */
+    addLog('info','Ready. Auto-detecting model in background (no model UI).');
+    addLog('info','Env',{ua:navigator.userAgent,deviceMemory:navigator.deviceMemory||null});
+
+    // main actions
+    el.go && (el.go.onclick=()=>run().catch(e=>addLog('error','Top level failure',String(e))));
+    el.align && (el.align.onclick=()=>{try{
+      if(!LAST_WORDS.length){alert('Transcribe first');return}
+      const refTxt= (CHAPTER_MODE && TEXT_CH[(CURRENT_AUDIO_CH_INDEX+MAP_OFFSET)]?.text) || REF_TEXT || '';
+      if(!refTxt){alert('Load an EPUB or TXT to align against.');return}
+      const corrected=alignAndCorrect(LAST_WORDS,refTxt);
+      addLog('info','Alignment complete',{orig:LAST_WORDS.length,corrected:corrected.length});
+      LAST_WORDS=corrected;PLAY_WORDS=normalizeForPlayback(LAST_WORDS);buildHighlightWindows();render(PLAY_WORDS);updateHighlightFromPlayer();ALIGNED_ONCE=true;refreshAlignButton()
+    }catch(e){addLog('error','Align failed',String(e));alert('Align failed — see log')}});
+
+    refreshAlignButton();
+
+    // mobile transport
+    if(IS_MOBILE){
+      const p=activePlayer();
+      el.mPrev&&(el.mPrev.onclick=()=>{p.currentTime=Math.max(0,p.currentTime-10)});
+      el.mNext&&(el.mNext.onclick=()=>{if(isFinite(p.duration)) p.currentTime=Math.min(p.duration,p.currentTime+10)});
+      el.mPlay&&(el.mPlay.onclick=()=>{p.paused?p.play():p.pause(); el.mPlay.textContent=p.paused?'▶':'⏸'});
+      p.addEventListener('play',()=>{el.mPlay.textContent='⏸'; setRate(CURRENT_RATE)});
+      p.addEventListener('pause',()=>{el.mPlay.textContent='▶'});
+    }
+
+    // keep times updating
+    setInterval(()=>{ if(IS_MOBILE) setMobileTimes(); }, 250);
   </script>
 </body>
 </html>
