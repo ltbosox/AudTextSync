@@ -38,18 +38,13 @@
         s.src = src; s.async = true; document.head.appendChild(s);
       });
     }
-    const FFMPEG_UMD = [
-      'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.10/umd/ffmpeg.min.js', // ✅ has .min.js
-      'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js', // non-min fallback
-      'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js',            // non-min fallback
-      `${location.origin}/AudTextSync/ffmpeg/ffmpeg.min.js`,                     // your Pages copy (if added)
-    ];
+    const FFMPEG_UMD_TRY = [ new URL('./ffmpeg/ffmpeg.min.js', location.href).toString() ];
     let gFFmpeg = null;
 
     async function ensureFFmpeg() {
       if (gFFmpeg) return gFFmpeg;
       // Load the UMD entry
-      for (const url of FFMPEG_UMD) {
+      for (const url of FFMPEG_UMD_TRY) {
         try { await loadScript(url, 12000); if (window.FFmpeg) break; } catch (_) {}
       }
       if (!window.FFmpeg) throw new Error('Failed to load @ffmpeg/ffmpeg UMD');
