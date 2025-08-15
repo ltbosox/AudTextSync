@@ -8,9 +8,9 @@
     :root{
       --bg:#111418;--panel:#161b21;--fg:#e8eef7;--muted:#9aa6b2;--line:#273044;--accent:#ffd666;
       /* MOBILE TUNABLES */
-      --mobile-max:420px;         /* <<< change this to lock mobile width (e.g. 380px, 440px) */
-      --m-lines:8;                /* <<< number of text lines visible in mobile transcript viewport */
-      --m-lh:1.6;                 /* line-height multiplier used by the viewport calc */
+      --mobile-max:420px;
+      --m-lines:8;
+      --m-lh:1.6;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -62,10 +62,9 @@
 
     /* ===== MOBILE UI ===== */
     :root[data-mobile="1"] body{font-size:16px}
-    :root[data-mobile="1"] header{display:none}       /* desktop header hidden on mobile */
-    :root[data-mobile="0"] #mobileApp{display:none}   /* hide mobile shell on desktop */
+    :root[data-mobile="1"] header{display:none}
+    :root[data-mobile="0"] #mobileApp{display:none}
 
-    /* FIXED, CENTERED mobile content width */
     #mobileApp{display:grid;grid-template-rows:auto auto 1fr auto;gap:16px;padding:14px;
       width:100%;max-width:var(--mobile-max);margin:0 auto}
 
@@ -78,17 +77,16 @@
     #mTitle{font-size:24px;font-weight:800;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
     #mTimes{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
-    #mSeek{appearance:none;width:100%;height:20px;border-radius:10px;background:#0f131a;border:1px solid var(--line);outline:none}
+    #mSeek{appearance:none;width:100%;height:20px;border-radius:10px;background:#0f131a;border:1px solid #273044;outline:none}
     #mSeek::-webkit-slider-thumb{appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);border:none}
     #mSeek::-moz-range-thumb{width:18px;height:18px;border:none;border-radius:50%;background:var(--accent)}
 
-    /* 3-line transcript viewport — height controlled by --m-lines */
     #mViewport{border:1px solid var(--line);border-radius:12px;background:#cfd3da0a;padding:10px 12px;overflow:hidden;position:relative}
     #mText{
       line-height:var(--m-lh);
       white-space:pre-wrap;
       overflow:auto;
-      height:calc(var(--m-lh) * 1em * var(--m-lines) + 12px); /* <<< change --m-lines to get more/less lines */
+      height:calc(var(--m-lh) * 1em * var(--m-lines) + 12px);
       scrollbar-width:none;
       word-break:break-word;overflow-wrap:break-word;
     }
@@ -96,19 +94,16 @@
     #mText .token{padding:4px 6px;border-radius:8px}
     #mText .token.playing{background:var(--accent);color:#000}
 
-    /* chapter/time row */
     #mChapterRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:center}
     .mChip{font-size:18px;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#1a1f28}
 
-    /* Transport + bottom pills */
     #mTransport{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
     .mBtn{display:flex;align-items:center;justify-content:center;border-radius:16px;padding:18px;border:1px solid #2b3342;background:#1e2430;font-size:24px}
     .mBtn:active{transform:scale(.98)}
     #mBottom{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:2px}
     #mBottom .pill{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:12px;padding:10px 8px;background:#141923}
 
-    /* Speed popover */
-    #speedPopover{position:fixed;z-index:60;min-width:220px;border:1px solid var(--line);background:#0f131a;border-radius:12px;padding:10px;display:none;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+    #speedPopover{position:fixed;z-index:60;min-width:220px;border:1px solid #2b3342;background:#0f131a;border-radius:12px;padding:10px;display:none;box-shadow:0 6px 20px rgba(0,0,0,.45)}
     #speedPopover .row{display:flex;gap:8px;flex-wrap:wrap}
     .speedOpt{flex:1;border:1px solid #2b3342;background:#1e2430;border-radius:10px;padding:8px 10px;text-align:center;cursor:pointer}
     .speedOpt:hover{filter:brightness(1.07)}
@@ -116,11 +111,9 @@
     .speedCustom input{flex:1;text-align:center}
     .speedCustom button{padding:10px 12px}
 
-    /* hide desktop table on mobile */
     :root[data-mobile="1"] #grid{display:none}
   </style>
 
-  <!-- Set data-mobile ASAP so CSS picks the right shell immediately -->
   <script>
     (function(){
       const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'')
@@ -172,11 +165,9 @@
       <div class="pill" id="mMore">⋯</div>
     </section>
 
-    <!-- Hidden audio element for mobile -->
     <audio id="player" hidden></audio>
   </main>
 
-  <!-- Speed popover (mobile) -->
   <div id="speedPopover" role="dialog" aria-label="Playback speed">
     <div class="row">
       <div class="speedOpt" data-sp="0.75">0.75×</div>
@@ -195,7 +186,7 @@
     </div>
   </div>
 
-  <!-- ===== DESKTOP UI (as before) ===== -->
+  <!-- ===== DESKTOP UI ===== -->
   <header>
     <div class="topbar">
       <div id="audioTitle" class="title">No audio loaded</div>
@@ -204,7 +195,7 @@
     <div id="controlShelf">
       <div class="field audio">
         <div class="lbl">Audio</div>
-        <input id="audioFile" type="file" accept="audio/*" />
+        <input id="audioFile" type="file" accept="audio/*,.m4b" />
       </div>
       <div class="field ref">
         <div class="lbl">Reference Text (optional)</div>
@@ -237,6 +228,17 @@
     </div>
     <div id="drawerControls" class="drawer-body">
       <div class="sec" id="secFiles"><div class="sec-title">Files</div></div>
+
+      <div class="sec" id="secChapters">
+        <div class="sec-title">Chapter Mode</div>
+        <div class="lbl">Audio chapters (.m4b)</div>
+        <select id="audioChSel" size="6" style="width:100%"></select>
+        <small id="audioChMeta" style="display:block;margin-top:4px;color:var(--muted)">(no audio chapters)</small>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <button id="transcribeThisChapter">Transcribe Selected</button>
+        </div>
+      </div>
+
       <div class="sec" id="secActions"><div class="sec-title">Actions</div></div>
       <div class="sec" id="secSettings"><div class="sec-title">Settings</div></div>
     </div>
@@ -299,6 +301,8 @@
       mSpeed:$("mSpeed"), mMenu:$("mMenu"),
       speedPopover:$("speedPopover"), speedInput:$("speedInput"), speedApply:$("speedApply"),
       drawer:$("drawer"), overlay:$("overlay"), secFiles:$("secFiles"), secActions:$("secActions"), secSettings:$("secSettings"), closeDrawer:$("closeDrawer"),
+      // chapters
+      audioChSel:$("audioChSel"), audioChMeta:$("audioChMeta"), transcribeThisChapter:$("transcribeThisChapter"),
       player:$("player")
     };
     function isMobileUA(){
@@ -323,6 +327,11 @@
     let MODEL_WATCH={active:false,start:0,lastBeat:0,timer:null,canceled:false};
     let LAST_WORDS=[],PLAY_WORDS=[],HWIN=[],REF_TEXT='',TOKENS=[],MOB_TOKENS=[],CUR_HI=-1,__playTimer=null,ALIGNED_ONCE=false;
     let CURRENT_RATE=1.00;
+
+    // chapter + decode cache
+    let DECODE_CACHE=null; // {f32,sr,durationSec,file}
+    let AUDIO_CH=[];       // [{title,start,end,index}]
+    let CURRENT_AUDIO_CH_INDEX=0;
 
     const NL='\n',ts=()=>new Date().toLocaleTimeString();
     function safe(o){try{if(o==null)return'';if(typeof o==='string')return o;return JSON.stringify(o,(k,v)=>typeof v==='bigint'?String(v):v)}catch{return'[unserializable]'}}
@@ -364,7 +373,6 @@
     }
     function openSpeedPopover(){
       const rect=el.mSpeed.getBoundingClientRect();
-      // Clamp to viewport so it never falls off-screen
       const pop=el.speedPopover;
       pop.style.display='block';
       const w=pop.offsetWidth||220;
@@ -402,78 +410,21 @@
     function modelCancel(){MODEL_WATCH.canceled=true;addLog('warn','Model load cancel requested')}
     el.cancelModel && (el.cancelModel.onclick=()=>modelCancel());
 
-    /* Player helpers & highlight */
-    function normalizeForPlayback(words){
-      const out=words.map(w=>({word:w.word,start:+w.start,end:+w.end,conf:+(w.conf??1)})).filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end));
-      if(!out.length) return out;
-      for(let i=0;i<out.length;i++){
-        const w=out[i],nextStart=i<out.length-1?out[i+1].start:w.end;
-        w.end<w.start&&(w.end=w.start);
-        w.end=Math.max(w.start+MIN_WORD,w.end);
-        if(i<out.length-1){w.end=Math.min(w.end,nextStart-GAP_PAD);if(w.end<=w.start)w.end=Math.min(nextStart-GAP_PAD,w.start+MIN_WORD)}
-      }
-      for(let i=1;i<out.length;i++) if(out[i].start<out[i-1].end+GAP_PAD) out[i].start=Math.min(out[i].start,out[i-1].end+GAP_PAD);
-      return out
-    }
+    /* Player helpers & highlight (UNCHANGED) */
+    const HILITE_LEAD=.04,HILITE_LAG=.06,MIN_WORD=.08,CLICK_PAD=.04,CLICK_MIN=.3,GAP_PAD=.01;
+    function normalizeForPlayback(words){const out=words.map(w=>({word:w.word,start:+w.start,end:+w.end,conf:+(w.conf??1)})).filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end));if(!out.length)return out;for(let i=0;i<out.length;i++){const w=out[i],nextStart=i<out.length-1?out[i+1].start:w.end;w.end<w.start&&(w.end=w.start);w.end=Math.max(w.start+MIN_WORD,w.end);if(i<out.length-1){w.end=Math.min(w.end,nextStart-GAP_PAD);if(w.end<=w.start)w.end=Math.min(nextStart-GAP_PAD,w.start+MIN_WORD)}}for(let i=1;i<out.length;i++) if(out[i].start<out[i-1].end+GAP_PAD) out[i].start=Math.min(out[i].start,out[i-1].end+GAP_PAD);return out}
+    let ADAPTIVE_ON=false,driftBias=0; const DRIFT_ALPHA=.12,DRIFT_CLAMP=.25;
+    let TOKENS=[],MOB_TOKENS=[],CUR_HI=-1,__playTimer=null,HWIN=[];
     function buildHighlightWindows(){HWIN=[];const n=PLAY_WORDS.length;if(!n)return;const C=PLAY_WORDS.map(w=>(w.start+w.end)/2);for(let i=0;i<n;i++){let L=i? (C[i-1]+C[i])/2 : (PLAY_WORDS[i].start-HILITE_LEAD),R=i===n-1? (PLAY_WORDS[i].end+HILITE_LAG):(C[i]+C[i+1])/2;i&&(L=Math.max(L,HWIN[i-1].end+1e-4));R<=L&&(R=L+1e-3);HWIN[i]={start:L,end:R}}}
-    function playSegment(start,end){
-      const p=activePlayer(); if(!p) return;
-      try{
-        const s=Math.max(0,(+start||0)-CLICK_PAD);
-        let e=Math.max(s+CLICK_MIN,+end||s+CLICK_MIN);
-        const dur=(p.duration&&isFinite(p.duration))?p.duration:null; dur!=null&&(e=Math.min(e,dur));
-        try{!p.paused&&p.pause()}catch{}
-        __playTimer&&(clearTimeout(__playTimer),__playTimer=null);
-        p.currentTime=s; const pr=p.play(); pr&&pr.catch(()=>{});
-        const playDur=Math.min(e-s,60); __playTimer=setTimeout(()=>{try{p.pause()}catch{}},playDur*1e3);
-      }catch{}
-    }
+    function playSegment(start,end){const p=activePlayer(); if(!p) return;try{const s=Math.max(0,(+start||0)-CLICK_PAD);let e=Math.max(s+CLICK_MIN,+end||s+CLICK_MIN);const dur=(p.duration&&isFinite(p.duration))?p.duration:null; dur!=null&&(e=Math.min(e,dur));try{!p.paused&&p.pause()}catch{}__playTimer&&(clearTimeout(__playTimer),__playTimer=null);p.currentTime=s; const pr=p.play(); pr&&pr.catch(()=>{});const playDur=Math.min(e-s,60); __playTimer=setTimeout(()=>{try{p.pause()}catch{}},playDur*1e3);}catch{}}
     function currentTimeAdj(){const p=activePlayer(); return p.currentTime+(ADAPTIVE_ON?driftBias:0)}
     function findWordIndexAt(t){if(!HWIN.length)return-1;let lo=0,hi=HWIN.length-1;for(;lo<=hi;){const mid=lo+hi>>1,w=HWIN[mid];if(t<w.start)hi=mid-1;else if(t>w.end)lo=mid+1;else return mid}return-1}
     function lerp(a,b,t){return a+(b-a)*t}
-    function centerMobileToken(idx, progress01){
-      if(!IS_MOBILE || idx<0 || !MOB_TOKENS[idx]) return;
-      const cont=el.mText, tok=MOB_TOKENS[idx];
-      const desired = Math.max(0, tok.offsetTop - (cont.clientHeight/2 - tok.clientHeight/2));
-      cont.scrollTop = lerp(cont.scrollTop, desired, Math.min(0.35, 0.15 + progress01*0.5));
-    }
-    function setHighlight(i){
-      if(i===CUR_HI) return;
-      if(CUR_HI>=0){
-        TOKENS[CUR_HI] && TOKENS[CUR_HI].classList.remove('playing');
-        MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.remove('playing');
-      }
-      CUR_HI=i;
-      if(CUR_HI>=0){
-        TOKENS[CUR_HI] && TOKENS[CUR_HI].classList.add('playing');
-        MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.add('playing');
-        if(TOKENS[CUR_HI] && el.text){
-          const t=TOKENS[CUR_HI], r=t.getBoundingClientRect(), host=el.text.getBoundingClientRect();
-          (r.top<host.top+8||r.bottom>host.bottom-8)&&t.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'})
-        }
-      }
-    }
-    function adaptiveUpdate(idx){
-      const p=activePlayer();
-      if(!ADAPTIVE_ON||idx<0) return;
-      const w=PLAY_WORDS[idx], mid=(w.start+w.end)/2, err=mid-p.currentTime;
-      const next=driftBias*(1-DRIFT_ALPHA)+err*DRIFT_ALPHA; driftBias=Math.max(-DRIFT_CLAMP,Math.min(DRIFT_CLAMP,next))
-    }
-    function updateHighlightFromPlayer(){
-      const p=activePlayer();
-      if(IS_MOBILE) setMobileTimes();
-      if(!PLAY_WORDS.length){setHighlight(-1);return}
-      const t=currentTimeAdj(), idx=findWordIndexAt(t); setHighlight(idx); adaptiveUpdate(idx);
-      if(IS_MOBILE && idx>=0){
-        const w=PLAY_WORDS[idx];
-        const prog=(t - w.start) / Math.max(1e-6,(w.end - w.start));
-        centerMobileToken(idx, Math.max(0,Math.min(1,prog)));
-      }
-    }
-    ['timeupdate','seeked','ratechange','seeking'].forEach(ev=>{
-      el.player?.addEventListener(ev,updateHighlightFromPlayer);
-      el.playerDesktop?.addEventListener(ev,updateHighlightFromPlayer);
-    });
+    function centerMobileToken(idx, progress01){if(!IS_MOBILE || idx<0 || !MOB_TOKENS[idx]) return;const cont=el.mText, tok=MOB_TOKENS[idx];const desired = Math.max(0, tok.offsetTop - (cont.clientHeight/2 - tok.clientHeight/2));cont.scrollTop = lerp(cont.scrollTop, desired, Math.min(0.35, 0.15 + progress01*0.5));}
+    function setHighlight(i){if(i===CUR_HI)return;if(CUR_HI>=0){TOKENS[CUR_HI] && TOKENS[CUR_HI].classList.remove('playing');MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.remove('playing');}CUR_HI=i;if(CUR_HI>=0){TOKENS[CUR_HI] && TOKENS[CUR_HI].classList.add('playing');MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.add('playing');if(TOKENS[CUR_HI] && el.text){const t=TOKENS[CUR_HI], r=t.getBoundingClientRect(), host=el.text.getBoundingClientRect();(r.top<host.top+8||r.bottom>host.bottom-8)&&t.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'})}}}
+    function adaptiveUpdate(idx){const p=activePlayer();if(!ADAPTIVE_ON||idx<0) return;const w=PLAY_WORDS[idx], mid=(w.start+w.end)/2, err=mid-p.currentTime;const next=driftBias*(1-DRIFT_ALPHA)+err*DRIFT_ALPHA; driftBias=Math.max(-DRIFT_CLAMP,Math.min(DRIFT_CLAMP,next))}
+    function updateHighlightFromPlayer(){const p=activePlayer();if(IS_MOBILE) setMobileTimes();if(!PLAY_WORDS.length){setHighlight(-1);return}const t=currentTimeAdj(), idx=findWordIndexAt(t); setHighlight(idx); adaptiveUpdate(idx);if(IS_MOBILE && idx>=0){const w=PLAY_WORDS[idx];const prog=(t - w.start) / Math.max(1e-6,(w.end - w.start));centerMobileToken(idx, Math.max(0,Math.min(1,prog)));}}
+    ['timeupdate','seeked','ratechange','seeking'].forEach(ev=>{el.player?.addEventListener(ev,updateHighlightFromPlayer);el.playerDesktop?.addEventListener(ev,updateHighlightFromPlayer);});
     let __raf=null;function startHiLoop(){if(__raf)return;const step=()=>{updateHighlightFromPlayer();__raf=requestAnimationFrame(step)};__raf=requestAnimationFrame(step)}
     function stopHiLoop(){__raf&&(cancelAnimationFrame(__raf),__raf=null)}
     el.player?.addEventListener('play',startHiLoop);
@@ -494,7 +445,16 @@
         const p=activePlayer(); if (p){ p.src=url; p.load(); }
         if(IS_MOBILE){ el.mTitle.textContent=file.name || 'Audio' } else { el.audioTitle && (el.audioTitle.textContent=file.name || 'Audio') }
       }catch(e){ addLog('warn','Attach audio failed',String(e)) }
-      REF_TEXT=''; el.refFile && (el.refFile.value=''); ALIGNED_ONCE=false; refreshAlignButton(); addLog('info','Reference cleared for new audio')
+      REF_TEXT=''; el.refFile && (el.refFile.value=''); ALIGNED_ONCE=false; refreshAlignButton(); addLog('info','Reference cleared for new audio');
+
+      // reset chapter + decode cache
+      AUDIO_CH=[]; CURRENT_AUDIO_CH_INDEX=0; populateAudioChapterUI();
+      DECODE_CACHE=null;
+
+      // parse chapters if m4b
+      if (file.name.toLowerCase().endsWith('.m4b')) {
+        parseM4BChapters(file).catch(e=>addLog('warn','m4b chapters fail',String(e)));
+      }
     }
     el.audioFile && (el.audioFile.onchange=()=>attachAudioFile(el.audioFile.files?.[0]||null));
     el.refFile && (el.refFile.onchange=async()=>{const f=el.refFile.files?.[0];if(!f){REF_TEXT='';ALIGNED_ONCE=false;refreshAlignButton();return}try{const txt=await f.text();REF_TEXT=txt;addLog('info','Reference text loaded',{chars:txt.length})}catch(e){addLog('error','Read ref text failed',String(e));REF_TEXT=''}ALIGNED_ONCE=false;refreshAlignButton()});
@@ -552,6 +512,15 @@
       return MODEL;
     }
 
+    // ===== decode cache =====
+    async function ensureDecode(){
+      if(DECODE_CACHE && AUDIO_FILE===DECODE_CACHE.file) return DECODE_CACHE;
+      if(!AUDIO_FILE) throw new Error('No audio file');
+      const {f32,sr}=await decodeToMonoF32(AUDIO_FILE);
+      DECODE_CACHE={f32,sr,durationSec:f32.length/sr,file:AUDIO_FILE};
+      return DECODE_CACHE;
+    }
+
     // audio decode + resample
     async function decodeToMonoF32(file){const buf=await file.arrayBuffer(),AC=window.AudioContext||window.webkitAudioContext,cx=new AC(),ab=await cx.decodeAudioData(buf),chs=ab.numberOfChannels,sr=ab.sampleRate,frames=ab.length;addLog('info','Audio decoded',{sr,chs,frames,secs:ab.duration.toFixed(3)});const mono=new Float32Array(frames);for(let c=0;c<chs;c++){const data=ab.getChannelData(c);for(let i=0;i<frames;i++)mono[i]+=data[i]/chs}const target=16000,res=resampleF32(mono,sr,target);addLog('info','Resampled',{from:sr,to:target,samples:res.length});await cx.close();return{f32:res,sr:target}}
     function resampleF32(input,src,dst){if(src===dst)return input;const ratio=dst/src,outLen=Math.round(input.length*ratio),out=new Float32Array(outLen);for(let i=0;i<outLen;i++){const x=i/ratio,xi=Math.floor(x),t=x-xi,a=input[xi]||0,b=input[xi+1]||0;out[i]=a+(b-a)*t}return out}
@@ -564,7 +533,8 @@
       else{el.align.disabled=false;el.align.textContent=ALIGNED_ONCE?'Re-Align':'Align & Correct';el.align.title=ALIGNED_ONCE?'Run alignment again':'Align transcript to reference'}
     }
 
-    async function run(){
+    // --- chapter-aware run ---
+    async function runChapter(chIndex=null){
       LOG.length=0; el.log && (el.log.textContent='(log starts here)');
       el.text && (el.text.textContent='(no transcript yet)'); el.tb && (el.tb.innerHTML='');
       el.mText && (el.mText.textContent='(no transcript yet)');
@@ -572,13 +542,32 @@
       if(!AUDIO_FILE){alert('Choose an audio file (hamburger ▶ Files).');setDrawer(true);return}
       const model=await ensureModel(); if(!model) return;
 
-      const{f32,sr}=await decodeToMonoF32(AUDIO_FILE),i16=floatToInt16(f32);
-      setStatus('Creating recognizer…'); destroyRecognizer();
+      const cache=await ensureDecode();
+      let startSec=0,endSec=cache.durationSec,title='Whole file';
+      if(Number.isInteger(chIndex) && AUDIO_CH[chIndex]){
+        const ch=AUDIO_CH[chIndex];
+        startSec=Math.max(0, ch.start||0);
+        endSec=Math.min(cache.durationSec, Math.max(startSec, ch.end||cache.durationSec));
+        title=ch.title||`Chapter ${ch.index||chIndex+1}`;
+        CURRENT_AUDIO_CH_INDEX=chIndex;
+        addLog('info','Transcribing chapter',{index:chIndex,title,startSec,endSec});
+      }else{
+        addLog('info','Transcribing full file',{secs:cache.durationSec.toFixed(3)});
+      }
+
+      const sr=cache.sr;
+      const startFrame = Math.floor(startSec*sr);
+      const endFrame   = Math.floor(endSec*sr);
+      const f32Slice = cache.f32.subarray(startFrame, endFrame);
+      const i16Slice = floatToInt16(f32Slice);
+      const sliceDurSec = (f32Slice.length)/sr;
+
+      setStatus(`Creating recognizer…`); destroyRecognizer();
       try{RECOG=model.KaldiRecognizer?new model.KaldiRecognizer(sr):new model.Recognizer(sr)}catch(e){addLog('error','Recognizer create failed',String(e));alert('Recognizer create failed — see log');return}
       RECOG.setWords&&RECOG.setWords(true);
       const useFloat=!!RECOG.acceptWaveformFloat;
       addLog('info','Recognizer method',{feed:useFloat?'acceptWaveformFloat(Float32,sr)':'acceptWaveform(Int16,sr)'}); addLog('info','Recognizer ready',{sampleRate:sr});
-      setStatus('Transcribing…'); setProg(12);
+      setStatus(`Transcribing… ${title}`); setProg(12);
 
       const fromEvents=[],transcriptPieces=[]; let lastEvt=performance.now();
       if(RECOG.on){
@@ -588,11 +577,11 @@
       }
 
       const CH=sr*.5|0; let off=0,n=0;
-      while(off<(useFloat?f32.length:i16.length)){
-        const slice=useFloat?f32.subarray(off,Math.min(f32.length,off+CH)):i16.subarray(off,Math.min(i16.length,off+CH));
+      while(off<(useFloat?f32Slice.length:i16Slice.length)){
+        const slice=useFloat?f32Slice.subarray(off,Math.min(f32Slice.length,off+CH)):i16Slice.subarray(off,Math.min(i16Slice.length,off+CH));
         off+=CH; n++;
         try{useFloat?RECOG.acceptWaveformFloat(slice,sr):(RECOG.acceptWaveform.length===2?RECOG.acceptWaveform(slice,sr):RECOG.acceptWaveform(slice))}catch(e){addLog('error','acceptWaveform failed',String(e));break}
-        n%8===0&&setProg(12+Math.min(80,Math.round(off/(useFloat?f32.length:i16.length)*80)));
+        n%8===0&&setProg(12+Math.min(80,Math.round(off/(useFloat?f32Slice.length:i16Slice.length)*80)));
         await new Promise(r=>setTimeout(r,0));
       }
       try{
@@ -609,7 +598,7 @@
       };
       pullAll();
 
-      const durSec=(useFloat?f32.length:i16.length)/sr,quietMs=2500,maxTail=Math.min(180000,Math.max(10000,Math.round(durSec*2500))),t0=performance.now();
+      const durSec=sliceDurSec,quietMs=2500,maxTail=Math.min(180000,Math.max(10000,Math.round(durSec*2500))),t0=performance.now();
       for(;performance.now()-t0<maxTail;){
         await new Promise(r=>setTimeout(r,150));
         const added=pullAll();
@@ -618,8 +607,9 @@
       }
       for(let k=0;k<2;k++){await new Promise(r=>setTimeout(r,100));pullAll()}
 
-      const seen=new Set(),words=fromEvents.filter(w=>w&&w.word).map(w=>({word:String(w.word).trim(),start:+w.start,end:+w.end,conf:+w.conf})).filter(w=>w.word&&Number.isFinite(w.start)&&Number.isFinite(w.end)).sort((a,b)=>a.start-b.start).filter(w=>{const k=`${w.start}|${w.end}|${w.word}`;if(seen.has(k))return false;seen.add(k);return true});
-      LAST_WORDS=words.slice();
+      const seen=new Set(),rawWords=fromEvents.filter(w=>w&&w.word).map(w=>({word:String(w.word).trim(),start:+w.start,end:+w.end,conf:+w.conf})).filter(w=>w.word&&Number.isFinite(w.start)&&Number.isFinite(w.end)).sort((a,b)=>a.start-b.start).filter(w=>{const k=`${w.start}|${w.end}|${w.word}`;if(seen.has(k))return false;seen.add(k);return true});
+      // shift to absolute file time so highlights match player
+      LAST_WORDS=rawWords.map(w=>({word:w.word,start:w.start+startSec,end:w.end+startSec,conf:w.conf}));
 
       let autoAligned=false;
       if(REF_TEXT&&REF_TEXT.trim().length){
@@ -631,16 +621,20 @@
       }
 
       PLAY_WORDS=normalizeForPlayback(LAST_WORDS); buildHighlightWindows();
-      addLog('info','Totals',{chunks:n,words:words.length,secs:durSec.toFixed(2)});
+      addLog('info','Totals',{chunks:n,words:LAST_WORDS.length,secs:durSec.toFixed(2)});
       render(PLAY_WORDS);
       setProg(100);
-      setStatus(`<span class="accent">Done</span> ${LAST_WORDS.length} words`);
+      setStatus(`<span class="accent">Done</span> ${LAST_WORDS.length} words — ${title}`);
       updateHighlightFromPlayer();
 
-      activePlayer()?.playbackRate && (activePlayer().playbackRate=CURRENT_RATE);
+      const p=activePlayer(); p && (p.playbackRate=CURRENT_RATE);
+      // Seek to chapter start for convenience, but don't autoplay (keeps original UX)
+      if(Number.isInteger(chIndex) && AUDIO_CH[chIndex]){ try{ p.pause(); }catch{} p.currentTime=startSec; }
     }
 
-    /* Align & render */
+    async function run(){ return runChapter(null); } // full file (original button)
+
+    /* Align & render (UNCHANGED) */
     function normalizeToken(s){return String(s).toLowerCase().replace(/[^a-z]+/g,'')}
     function tokenizeReference(text){return text.split(/\s+/).filter(Boolean).map(tok=>{const norm=normalizeToken(tok);return norm?{raw:tok,norm}:null}).filter(Boolean)}
     function levenshtein(a,b){const m=a.length,n=b.length,dp=new Array(n+1);for(let j=0;j<=n;j++)dp[j]=j;for(let i=1;i<=m;i++){let prev=dp[0];dp[0]=i;for(let j=1;j<=n;j++){const ins=dp[j]+1,del=dp[j-1]+1,sub=prev+(a[i-1]===b[j-1]?0:1);prev=dp[j];dp[j]=Math.min(ins,del,sub)}}return dp[n]}
@@ -668,7 +662,7 @@
       return out
     }
     function fmt(t){if(!isFinite(t))return'';const s=t|0,ms=Math.round((t-(t|0))*1e3).toString().padStart(3,'0'),m=(s/60|0).toString().padStart(2,'0'),ss=(s%60).toString().padStart(2,'0');return`${m}:${ss}.${ms}`}
-    function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))}
+    function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;","\"":"&quot;"}[c]))}
 
     function render(words){
       // desktop transcript + table
@@ -683,7 +677,7 @@
           }
         }
       }
-      // mobile 3-line viewport
+      // mobile viewport
       if(el.mText){
         const m=el.mText; m.innerHTML=''; MOB_TOKENS=[];
         if(!words.length){m.textContent='(empty)'} else {
@@ -692,6 +686,8 @@
           m.append(frag2); MOB_TOKENS=Array.from(m.querySelectorAll('.token'));
         }
         el.mChapterLen.textContent = words.length ? fmt(words[words.length-1].end).slice(0,5) : '—';
+        el.mChapterIdx.textContent = AUDIO_CH.length ? String((CURRENT_AUDIO_CH_INDEX+1)).padStart(3,'0') : '—';
+        el.mChapterClock.textContent = AUDIO_CH.length ? fmt(AUDIO_CH[CURRENT_AUDIO_CH_INDEX].start).slice(0,5) : '—';
       }
       addLog('info','Rendered',{words:words.length})
     }
@@ -715,6 +711,258 @@
       el.mPlay&&(el.mPlay.onclick=()=>{p.paused?p.play():p.pause(); el.mPlay.textContent=p.paused?'▶':'⏸'});
       p.addEventListener('play',()=>{el.mPlay.textContent='⏸'; setRate(CURRENT_RATE)});
       p.addEventListener('pause',()=>{el.mPlay.textContent='▶'});
+    }
+
+    /* ===== Chapters UI ===== */
+    function populateAudioChapterUI(){
+      const sel=el.audioChSel; if(!sel) return; sel.innerHTML='';
+      if(!AUDIO_CH.length){el.audioChMeta.textContent='(no audio chapters)'; return;}
+      AUDIO_CH.forEach((c,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${(i+1).toString().padStart(3,'0')}  ${c.title}  (${fmt(c.start).slice(0,5)}–${fmt(c.end).slice(0,5)})`; sel.appendChild(o)});
+      el.audioChMeta.textContent=`${AUDIO_CH.length} audio chapters`;
+      sel.value=String(CURRENT_AUDIO_CH_INDEX);
+    }
+    el.transcribeThisChapter?.addEventListener('click',()=>{
+      const idx = +el.audioChSel.value|0;
+      if(Number.isFinite(idx)){ CURRENT_AUDIO_CH_INDEX=idx; runChapter(idx).catch(e=>addLog('error','Chapter run failed',String(e))); }
+    });
+
+    /* ===== m4b chapter parsing (QuickTime text-track → Nero chpl) ===== */
+    function readBoxes(dv, start, end){
+      const boxes=[]; let off=start;
+      while(off+8<=end){
+        let size=dv.getUint32(off);
+        const type=String.fromCharCode(dv.getUint8(off+4),dv.getUint8(off+5),dv.getUint8(off+6),dv.getUint8(off+7));
+        let header=8;
+        if(size===1){ const hi=dv.getUint32(off+8), lo=dv.getUint32(off+12); size=Number((BigInt(hi)<<32n)+BigInt(lo)); header=16; }
+        else if(size===0){ size=end-off; }
+        if(size<header || off+size>end) break;
+        boxes.push({type,start:off,size,header,end:off+size,children:null});
+        off+=size||8;
+      }
+      return boxes;
+    }
+    function parseTree(dv, start, end){
+      const top=readBoxes(dv,start,end);
+      const walk=(box)=>{
+        const container=["moov","trak","mdia","minf","stbl","edts","udta","meta","ilst"].includes(box.type);
+        if(box.type==="meta"){
+          const payloadStart = box.start + box.header + 4;
+          box.children = readBoxes(dv, payloadStart, box.end).map(b=>walk(b));
+        }else if(container){
+          box.children = readBoxes(dv, box.start+box.header, box.end).map(b=>walk(b));
+        }else{ box.children=[]; }
+        return box;
+      };
+      return top.map(walk);
+    }
+    function findPath(root, path){
+      let cur=root, last=null;
+      for(const p of path){ last=(cur||[]).find(b=>b.type===p); if(!last) return null; cur=last.children||[]; }
+      return last;
+    }
+    function getDurationSeconds(dv, root){
+      const mvhd=findPath(root,["moov","mvhd"]); if(!mvhd) return null;
+      let off=mvhd.start+mvhd.header; const ver=dv.getUint8(off); off+=1; off+=3;
+      if(ver===1){ off+=8; off+=8; const timescale=dv.getUint32(off); off+=4; const hi=dv.getUint32(off), lo=dv.getUint32(off+4); off+=8; const dur=Number((BigInt(hi)<<32n)+BigInt(lo)); return timescale?dur/timescale:null; }
+      else { off+=4; off+=4; const timescale=dv.getUint32(off); off+=4; const dur=dv.getUint32(off); off+=4; return timescale?dur/timescale:null; }
+    }
+    function parseTextTrack(dv, root){
+      const moov=root.find(b=>b.type==='moov'); if(!moov) return {entries:[],debug:"no moov"};
+      const traks=moov.children.filter(b=>b.type==='trak');
+      for(const trak of traks){
+        const mdia=trak.children.find(b=>b.type==='mdia'); if(!mdia) continue;
+        const hdlr=mdia.children.find(b=>b.type==='hdlr'); if(!hdlr) continue;
+        const hOff=hdlr.start+hdlr.header;
+        const handler=String.fromCharCode(dv.getUint8(hOff+8),dv.getUint8(hOff+9),dv.getUint8(hOff+10),dv.getUint8(hOff+11));
+        if(!["text","sbtl","subt"].includes(handler)) continue;
+
+        const mdhd=mdia.children.find(b=>b.type==='mdhd'); if(!mdhd) continue;
+        let mOff=mdhd.start+mdhd.header; const ver=dv.getUint8(mOff); mOff+=1; mOff+=3;
+        let timescale; if(ver===1){ mOff+=8; mOff+=8; timescale=dv.getUint32(mOff); } else { mOff+=4; mOff+=4; timescale=dv.getUint32(mOff); }
+
+        const minf=mdia.children.find(b=>b.type==='minf'); if(!minf) continue;
+        const stbl=minf.children.find(b=>b.type==='stbl'); if(!stbl) continue;
+
+        const stts=stbl.children.find(b=>b.type==='stts'); if(!stts) continue;
+        let tOff=stts.start+stts.header; tOff+=4; const n=dv.getUint32(tOff); tOff+=4;
+        const dts=[]; let t=0;
+        for(let i=0;i<n;i++){ const count=dv.getUint32(tOff); tOff+=4; const delta=dv.getUint32(tOff); tOff+=4; for(let j=0;j<count;j++){ dts.push(t); t+=delta; } }
+
+        const stsz=stbl.children.find(b=>b.type==='stsz'); if(!stsz) continue;
+        let zOff=stsz.start+stsz.header; zOff+=4; const sampleSize=dv.getUint32(zOff); zOff+=4; const sampleCount=dv.getUint32(zOff); zOff+=4;
+        const sizes = sampleSize ? Array(sampleCount).fill(sampleSize) : Array.from({length:sampleCount},(_,i)=>dv.getUint32(zOff+i*4));
+
+        const stsc=stbl.children.find(b=>b.type==='stsc'); if(!stsc) continue;
+        let cOff=stsc.start+stsc.header; cOff+=4; const cCount=dv.getUint32(cOff); cOff+=4; const stscEntries=[];
+        for(let i=0;i<cCount;i++){ stscEntries.push([dv.getUint32(cOff),dv.getUint32(cOff+4),dv.getUint32(cOff+8)]); cOff+=12; }
+
+        const stco=stbl.children.find(b=>b.type==='stco'); const co64=stbl.children.find(b=>b.type==='co64');
+        let offs=[];
+        if(stco){ let oOff=stco.start+stco.header; oOff+=4; const oCount=dv.getUint32(oOff); oOff+=4; for(let i=0;i<oCount;i++) offs.push(dv.getUint32(oOff+i*4)); }
+        else if(co64){ let oOff=co64.start+co64.header; oOff+=4; const oCount=dv.getUint32(oOff); oOff+=4; for(let i=0;i<oCount;i++){ const hi=dv.getUint32(oOff+i*8),lo=dv.getUint32(oOff+i*8+4); offs.push(Number((BigInt(hi)<<32n)+BigInt(lo))); } }
+        else continue;
+
+        const chunkSampleCounts = Array(offs.length).fill(0);
+        for (let i=0;i<stscEntries.length;i++){
+          const first=stscEntries[i][0]-1;
+          const nextFirst=(i+1<stscEntries.length?stscEntries[i+1][0]-2:offs.length-1);
+          const spc=stscEntries[i][1];
+          for(let ch=first; ch<=nextFirst; ch++){ if(ch>=0 && ch<chunkSampleCounts.length) chunkSampleCounts[ch]=spc; }
+        }
+        const sampleOffsets=[]; let sizeIdx=0;
+        for(let ch=0; ch<offs.length; ch++){
+          const base=offs[ch], spc=chunkSampleCounts[ch]||0;
+          let cur=base;
+          for(let k=0;k<spc;k++){
+            if(sizeIdx>=sizes.length) break;
+            const sz=sizes[sizeIdx++]; sampleOffsets.push([cur,sz]); cur+=sz;
+          }
+          if(sizeIdx>=sizes.length) break;
+        }
+
+        const nSamples=Math.min(dts.length,sampleOffsets.length), entries=[];
+        for(let i=0;i<nSamples;i++){
+          const [soff,sz]=sampleOffsets[i];
+          const bytes=new Uint8Array(dv.buffer, soff, sz);
+          let title="";
+          if(sz>=2){
+            const L=(bytes[0]<<8)|bytes[1];
+            if(L>0 && 2+L<=bytes.length){ title=new TextDecoder().decode(bytes.slice(2,2+L)); }
+          }
+          if(!title){
+            try{ title=new TextDecoder().decode(bytes); }catch{ try{ title=new TextDecoder('utf-16be').decode(bytes); }catch{ title=""; } }
+          }
+          entries.push({index:i+1,startSeconds:timescale? dts[i]/timescale:0,title:(title||'').trim()});
+        }
+        if(entries.length) return {entries,debug:`text-track samples=${entries.length}`};
+      }
+      return {entries:[],debug:'no text-track'};
+    }
+    function parseChpl(dv, chplBox, fileDurationSec){
+      const start = chplBox.start + chplBox.header, end = chplBox.end;
+      if (end - start < 6) return { entries:[], debug:"too small" };
+      let off = start;
+      const units=[["us",1/1e6],["ms",1/1e3],["sec",1],["cs",1/100],["90k",1/90000]];
+      const margin=600;
+
+      function parseLen(base){
+        const out=[]; let p=base;
+        while(p+9<=end){
+          const hi=dv.getUint32(p), lo=dv.getUint32(p+4); p+=8;
+          const L=dv.getUint8(p); p+=1;
+          if(p+L>end) break;
+          const bytes=new Uint8Array(dv.buffer, dv.byteOffset+p, L); p+=L;
+          const title=new TextDecoder().decode(bytes);
+          const raw=Number((BigInt(hi)<<32n)+BigInt(lo));
+          out.push({raw,title});
+          if(L===0 && out.length>4096) break;
+        }
+        return out;
+      }
+      function parseCStr(base){
+        const out=[]; let p=base;
+        while(p+9<=end){
+          const hi=dv.getUint32(p), lo=dv.getUint32(p+4); p+=8;
+          let q=p, found=-1, scanned=0;
+          while(q<end && scanned<2048){ if(dv.getUint8(q)===0){found=q;break;} q++; scanned++; }
+          if(found<0) break;
+          const bytes=new Uint8Array(dv.buffer, dv.byteOffset+p, found-p); p=found+1;
+          const raw=Number((BigInt(hi)<<32n)+BigInt(lo));
+          const title=new TextDecoder().decode(bytes);
+          out.push({raw,title});
+          if(out.length>4096) break;
+        }
+        return out;
+      }
+
+      const atts=[];
+      for(const layout of ["len","cstr"]){
+        for(const skip of [false,true]){
+          for(let shift=0; shift<=64; shift++){
+            const base=off+(skip?1:0)+shift; if(base>=end) break;
+            const raw = (layout==="len") ? parseLen(base) : parseCStr(base);
+            if(!raw.length) continue;
+            atts.push({layout,skip,shift,raw});
+          }
+        }
+      }
+      if(!atts.length) return {entries:[],debug:'no candidates'};
+
+      let bestUnit="us", bestScale=1/1e6, bestCount=-1;
+      for(const [uname,scale] of units){
+        let c=0;
+        for(const a of atts){
+          for(const r of a.raw){
+            const t=r.raw*scale;
+            if(t>=0 && (!fileDurationSec || t<=fileDurationSec+margin)) c++;
+          }
+        }
+        if(c>bestCount){ bestCount=c; bestUnit=uname; bestScale=scale; }
+      }
+
+      atts.forEach(a=>{
+        a.seq=a.raw.map(r=>({t:r.raw*bestScale,title:r.title}));
+        a.inRange=a.seq.filter(e=>e.t>=0 && (!fileDurationSec || e.t<=fileDurationSec+margin));
+        a.score=a.inRange.length;
+      });
+      atts.sort((a,b)=>b.score-a.score);
+      const primary=atts[0];
+      const merged=[...primary.inRange];
+      for(let i=1;i<atts.length;i++){
+        for(const e of atts[i].inRange){
+          if(!merged.some(m=>Math.abs(m.t-e.t)<=0.2)) merged.push(e);
+        }
+      }
+      merged.sort((a,b)=>a.t-b.t);
+
+      return { entries: merged.map((e,i)=>({index:i+1,startSeconds:e.t,title:e.title})),
+               debug:`chpl: unit=${bestUnit}, primary=${primary.layout}/${primary.skip}/${primary.shift}, inRange=${primary.inRange.length}, merged=${merged.length}` };
+    }
+    function withStops(list, durationSec){
+      const out=list.map(c=>({...c}));
+      for(let i=0;i<out.length;i++){
+        const thisStart=out[i].startSeconds ?? out[i].start ?? 0;
+        const nextStart=(i+1<out.length) ? (out[i+1].startSeconds ?? out[i+1].start ?? thisStart) :
+                        (Number.isFinite(durationSec)? durationSec : thisStart);
+        out[i].start = thisStart;
+        out[i].end = Math.max(thisStart, nextStart);
+        out[i].title = out[i].title || `Chapter ${String(i+1).padStart(2,'0')}`;
+      }
+      return out.map(({index,...c},i)=>({title:c.title,start:c.start,end:c.end,index:i+1}));
+    }
+    async function parseM4BChapters(file){
+      try{
+        addLog('info','Scanning MP4 boxes…');
+        const buf=await file.arrayBuffer();
+        const dv=new DataView(buf);
+        const root=parseTree(dv,0,buf.byteLength);
+        const dur=getDurationSeconds(dv,root);
+        if(dur) addLog('info',`Duration (mvhd): ${dur.toFixed(3)} s`);
+
+        const textRes=parseTextTrack(dv,root);
+        if(textRes.entries.length){
+          addLog('info',`Found QuickTime text-track chapters. ${textRes.debug}`);
+          AUDIO_CH = withStops(textRes.entries.sort((a,b)=>a.startSeconds-b.startSeconds), dur);
+          populateAudioChapterUI(); return;
+        }
+
+        const udta=findPath(root,["moov","udta"]);
+        const chpl=udta?.children?.find(b=>b.type==='chpl');
+        if(chpl){
+          const chplRes=parseChpl(dv,chpl,dur||null);
+          addLog('info',`Found Nero chpl. ${chplRes.debug}`);
+          AUDIO_CH = withStops(chplRes.entries.sort((a,b)=>a.startSeconds-b.startSeconds), dur);
+          populateAudioChapterUI(); return;
+        }
+
+        addLog('warn','No chapters found; using single chapter');
+        AUDIO_CH = [{title:file.name,start:0,end:dur||999999,index:1}];
+        populateAudioChapterUI();
+      }catch(e){
+        addLog('warn','m4b parse failed — single chapter', String(e));
+        AUDIO_CH=[{title:file.name,start:0,end:999999,index:1}];
+        populateAudioChapterUI();
+      }
     }
   </script>
 </body>
