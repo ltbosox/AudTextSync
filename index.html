@@ -230,7 +230,11 @@
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <button id="startChapterMode" class="primary">Start Chapter Mode</button>
             <button id="transcribeThisChapter">Transcribe Selected</button>
-            <button id="exportWav" title="Export current chapter as WAV">Export WAV</button>
+            <button id="exportWav" title="Download current chapter as WAV">Export WAV</button>
+            <button id="sliceReplaceWav" title="Slice current chapter to a WAV and make it the active audio">
+              Slice → Use WAV
+            </button>
+            <small id="sliceMeta" style="color:var(--muted)"></small>
           </div>
         </div>
       </div>
@@ -1169,6 +1173,65 @@
       addLog('info','EPUB chapters parsed',{count:TEXT_CH.length});
     }
 
+    /* ===== Chapter → WAV helpers (16 kHz mono, WAV container) ===== */
+    function safeFileStem(s){ return String(s||'audio').replace(/[^\w\-]+/g,'_').slice(0,80) }
+    function fmtBytes(n){ if(!Number.isFinite(n)) return '—'; const u=['B','KB','MB','GB']; let i=0; while(n>=1024&&i<u.length-1){n/=1024;i++} return n.toFixed(1)+' '+u[i] }
+    
+    async function sliceCurrentToWavBlob(){
+      const cache = await ensureDecode(); // uses your existing decode/resample pipeline (→ 16 kHz mono Float32Array)
+      const idx = getSelectedAudioIndex();
+      const ch  = AUDIO_CH[idx] || { title:'chapter', start:0, end:cache.durationSec };
+    
+      const sr  = cache.sr;
+      const s0  = Math.floor(ch.start * sr);
+      const s1  = Math.floor(Math.min(ch.end, cache.durationSec) * sr);
+      const f32 = cache.f32.subarray(s0, s1);
+      const i16 = floatToInt16(f32);          // existing helper
+      const wav = writeWavPCM16(i16, sr);     // existing helper (writes proper WAV header)
+    
+      const stem = safeFileStem(ch.title || (AUDIO_FILE?.name || 'audio'));
+      const name = `${stem}.wav`;
+      return { blob: wav, name, sr, samples: i16.length, dur: (i16.length/sr) };
+    }
+    
+    /* Slice current chapter to WAV and make it the active audio for playback/transcription */
+    async function sliceReplaceWithWav(){
+      try{
+        setStatus('Slicing current chapter to WAV…');
+        const { blob, name, sr, samples, dur } = await sliceCurrentToWavBlob();
+    
+        // Turn blob into a File so name/type behave like a picked file
+        const wavFile = new File([blob], name, { type: 'audio/wav' });
+    
+        // Swap it in as the active audio
+        AUDIO_FILE = wavFile;
+        DECODE_CACHE = null;     // clear decode cache so ensureDecode() re-decodes this WAV
+        CHAPTER_MODE = false;    // we’re now working with a single WAV
+        AUDIO_CH = [{ title: name, start: 0, end: dur, index: 1 }];
+        CURRENT_AUDIO_CH_INDEX = 0;
+        populateAudioChapterUI();
+    
+        // Point both players to the new WAV
+        const url = URL.createObjectURL(wavFile);
+        el.player && (el.player.src = url, el.player.load());
+        el.playerDesktop && (el.playerDesktop.src = url, el.playerDesktop.load());
+    
+        // Titles
+        if (IS_MOBILE) { el.mTitle.textContent = name; } else { el.audioTitle && (el.audioTitle.textContent = name); }
+    
+        // Meta & log
+        const meta = `WAV • mono ${sr} Hz • ${fmtBytes(blob.size)} • ${fmt(dur).slice(0,5)}`;
+        const infoEl = document.getElementById('sliceMeta');
+        if (infoEl) infoEl.textContent = meta;
+    
+        addLog('info','Slice → Use WAV complete', { name, sr, samples, bytes: blob.size, seconds: dur.toFixed(3) });
+        setStatus(`<span class="accent">Ready</span> ${name} — use “Transcribe” as usual`);
+      }catch(e){
+        addLog('error','Slice → Use WAV failed', String(e));
+        alert('Slice failed — see Log for details.');
+      }
+    }
+    
     /* ===== Export current chapter as WAV (PCM16) ===== */
     function writeWavPCM16(samplesI16, sampleRate){
       const numChannels=1, bitsPerSample=16;
@@ -1210,6 +1273,7 @@
       }
     }
     el.exportWav?.addEventListener('click', exportCurrentChapterWav);
+    el.sliceReplaceWav?.addEventListener('click', sliceReplaceWithWav);
 
     /* ===== Init & controls ===== */
     addLog('info','Ready. Auto-detecting model in background (no model UI).');
