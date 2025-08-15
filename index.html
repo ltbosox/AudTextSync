@@ -107,6 +107,49 @@
       document.documentElement.setAttribute('data-mobile',isMobile?'1':'0');
     })();
   </script>
+  <script>
+  // --- START: robust FFmpeg loader (UMD) ---
+  async function loadScript(src, timeoutMs = 12000) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      const timer = setTimeout(() => { s.remove(); reject(new Error('timeout')); }, timeoutMs);
+      s.onload = () => { clearTimeout(timer); resolve(); };
+      s.onerror = (e) => { clearTimeout(timer); reject(e?.error || new Error('network error')); };
+      s.src = src; s.async = true;
+      document.head.appendChild(s);
+    });
+  }
+  
+  // Preferred sources for @ffmpeg/ffmpeg UMD
+  const FFMPEG_UMD_CANDIDATES = [
+    'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.10/umd/ffmpeg.min.js',   // ✅ has .min.js
+    'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js',    // (non-min) fallback
+    'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js',               // (non-min) fallback
+    `${location.origin}/AudTextSync/ffmpeg/ffmpeg.min.js`,                        // your Pages copy (if published)
+  ];
+  
+  async function ensureFFmpegUMD() {
+    if (window.FFmpeg) return window.FFmpeg;
+    for (const url of FFMPEG_UMD_CANDIDATES) {
+      try { await loadScript(url, 12000); if (window.FFmpeg) return window.FFmpeg; }
+      catch (err) { console.warn('[FFmpeg] script failed', { url, err: String(err) }); }
+    }
+    throw new Error('FFmpeg UMD script could not be loaded from any source');
+  }
+  
+  async function getFfmpegInstance() {
+    const { FFmpeg } = await ensureFFmpegUMD();
+    const ffmpeg = new FFmpeg();
+    // Use explicit UMD-core URLs so the worker/wasm always resolve
+    await ffmpeg.load({
+      coreURL:   'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/ffmpeg-core.js',
+      wasmURL:   'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/ffmpeg-core.wasm',
+      workerURL: 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.10/umd/ffmpeg-core.worker.js',
+    });
+    return ffmpeg;
+  }
+  // --- END: robust FFmpeg loader (UMD) ---
+  </script>
 </head>
 <body>
 
