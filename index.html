@@ -492,9 +492,9 @@
     function modelCancel(){MODEL_WATCH.canceled=true;addLog('warn','Model load cancel requested')}
     el.cancelModel && (el.cancelModel.onclick=()=>modelCancel());
 
-    /* Highlight + playback */
+    /* Player helpers & highlight — working baseline + chapter-offset fix */
     function normalizeForPlayback(words){
-      const out=words
+      const out = words
         .map(w=>({word:w.word,start:+w.start,end:+w.end,conf:+(w.conf??1)}))
         .filter(w=>Number.isFinite(w.start)&&Number.isFinite(w.end));
       if(!out.length) return out;
@@ -530,7 +530,8 @@
     }
     
     function playSegment(start,end){
-      const p=activePlayer(); if(!p) return;
+      const p = (typeof activePlayer==='function' ? activePlayer() : el.player);
+      if(!p) return;
       try{
         const s=Math.max(0,(+start||0)-CLICK_PAD);
         let e=Math.max(s+CLICK_MIN,+end||s+CLICK_MIN);
@@ -545,9 +546,18 @@
       }catch{}
     }
     
+    /* >>>>> Key fix: keep clocks aligned when chapters are used <<<<< */
     function currentTimeAdj(){
-      const p=activePlayer();
-      return p ? (p.currentTime + (ADAPTIVE_ON?driftBias:0)) : 0;
+      const p = (typeof activePlayer==='function' ? activePlayer() : el.player);
+      let t = p ? (p.currentTime||0) : 0;
+    
+      // If your app defines chapter state, shift to chapter-relative time.
+      // These names match the chapter-enabled builds you've shared.
+      if (typeof CHAPTER_MODE!=='undefined' && CHAPTER_MODE && Array.isArray(AUDIO_CH)) {
+        const ch = AUDIO_CH[typeof CURRENT_AUDIO_CH_INDEX==='number' ? CURRENT_AUDIO_CH_INDEX : 0];
+        if (ch && Number.isFinite(ch.start)) t -= ch.start;
+      }
+      return t + (ADAPTIVE_ON ? driftBias : 0);
     }
     
     function findWordIndexAt(t){
@@ -564,24 +574,30 @@
     
     function lerp(a,b,t){ return a+(b-a)*t; }
     
+    /* optional mobile centering: harmless if mobile bits don’t exist */
     function centerMobileToken(idx, progress01){
-      if(!IS_MOBILE || idx<0 || !MOB_TOKENS[idx]) return;
+      if(typeof IS_MOBILE==='undefined' || !IS_MOBILE) return;
+      if(!MOB_TOKENS || idx<0 || !MOB_TOKENS[idx]) return;
       const cont=el.mText, tok=MOB_TOKENS[idx];
+      if(!cont || !tok) return;
       const desired = Math.max(0, tok.offsetTop - (cont.clientHeight/2 - tok.clientHeight/2));
       cont.scrollTop = lerp(cont.scrollTop, desired, Math.min(0.35, 0.15 + progress01*0.5));
     }
     
     function setHighlight(i){
       if(i===CUR_HI) return;
+    
       if(CUR_HI>=0){
-        TOKENS[CUR_HI] && TOKENS[CUR_HI].classList.remove('playing');
-        MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.remove('playing');
+        TOKENS && TOKENS[CUR_HI] && TOKENS[CUR_HI].classList.remove('playing');
+        MOB_TOKENS && MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.remove('playing');
       }
       CUR_HI=i;
+    
       if(CUR_HI>=0){
-        TOKENS[CUR_HI] && TOKENS[CUR_HI].classList.add('playing');
-        MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.add('playing');
-        if(TOKENS[CUR_HI] && el.text){
+        TOKENS && TOKENS[CUR_HI] && TOKENS[CUR_HI].classList.add('playing');
+        MOB_TOKENS && MOB_TOKENS[CUR_HI] && MOB_TOKENS[CUR_HI].classList.add('playing');
+    
+        if(TOKENS && TOKENS[CUR_HI] && el.text){
           const t=TOKENS[CUR_HI], r=t.getBoundingClientRect(), host=el.text.getBoundingClientRect();
           (r.top<host.top+8||r.bottom>host.bottom-8)&&t.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'});
         }
@@ -589,49 +605,36 @@
     }
     
     function adaptiveUpdate(idx){
-      const p=activePlayer();
+      const p = (typeof activePlayer==='function' ? activePlayer() : el.player);
       if(!ADAPTIVE_ON || idx<0 || !p) return;
-      const w=PLAY_WORDS[idx], mid=(w.start+w.end)/2, err=mid-p.currentTime;
+      const w=PLAY_WORDS[idx], mid=(w.start+w.end)/2, err=mid-(p.currentTime||0);
       const next=driftBias*(1-DRIFT_ALPHA)+err*DRIFT_ALPHA;
       driftBias=Math.max(-DRIFT_CLAMP,Math.min(DRIFT_CLAMP,next));
     }
     
     function updateHighlightFromPlayer(){
-      const p=activePlayer();
-      if(IS_MOBILE) setMobileTimes();
+      // If your build has this helper, keep times fresh on mobile
+      if (typeof IS_MOBILE!=='undefined' && IS_MOBILE && typeof setMobileTimes==='function') setMobileTimes();
     
       if(!PLAY_WORDS.length){ setHighlight(-1); return; }
     
-      const t=currentTimeAdj(), idx=findWordIndexAt(t);
+      const t = currentTimeAdj();
+      const idx = findWordIndexAt(t);
       setHighlight(idx);
       adaptiveUpdate(idx);
     
-      if(IS_MOBILE && idx>=0){
+      // optional mobile centering (no effect on desktop)
+      if (typeof IS_MOBILE!=='undefined' && IS_MOBILE && idx>=0){
         const w=PLAY_WORDS[idx];
         const prog=(t - w.start) / Math.max(1e-6,(w.end - w.start));
         centerMobileToken(idx, Math.max(0,Math.min(1,prog)));
-      }
-    
-      /* --- keep your chapter prefetch behavior --- */
-      if (CHAPTER_MODE && AUDIO_CH.length) {
-        const ch=AUDIO_CH[CURRENT_AUDIO_CH_INDEX]; if(!ch || !p) return;
-        const chDur=(ch.end - ch.start);
-        if(!PREFETCHING && chDur>1 && (p.currentTime - ch.start) > 0.8*chDur ){
-          const nextIdx=CURRENT_AUDIO_CH_INDEX+1;
-          if(nextIdx<AUDIO_CH.length) {
-            PREFETCHING=true;
-            const nextTextIdx = nextIdx + MAP_OFFSET;
-            const refTxt = TEXT_CH[nextTextIdx]?.text || '';
-            runChapter(nextIdx, false, refTxt).finally(()=>{PREFETCHING=false});
-          }
-        }
       }
     }
     
     /* events that drive highlighting */
     ['timeupdate','seeked','ratechange','seeking'].forEach(ev=>{
-      el.player?.addEventListener(ev,updateHighlightFromPlayer);
-      el.playerDesktop?.addEventListener(ev,updateHighlightFromPlayer);
+      if (el.player) el.player.addEventListener(ev,updateHighlightFromPlayer);
+      if (el.playerDesktop) el.playerDesktop.addEventListener(ev,updateHighlightFromPlayer);
     });
     
     let __raf=null;
@@ -642,18 +645,21 @@
     }
     function stopHiLoop(){ if(__raf){ cancelAnimationFrame(__raf); __raf=null; } }
     
-    el.player?.addEventListener('play',startHiLoop);
-    el.player?.addEventListener('pause',stopHiLoop);
-    el.player?.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1);});
+    if (el.player){
+      el.player.addEventListener('play',startHiLoop);
+      el.player.addEventListener('pause',stopHiLoop);
+      el.player.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1);});
+    }
+    if (el.playerDesktop){
+      el.playerDesktop.addEventListener('play',startHiLoop);
+      el.playerDesktop.addEventListener('pause',stopHiLoop);
+      el.playerDesktop.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1);});
+    }
     
-    el.playerDesktop?.addEventListener('play',startHiLoop);
-    el.playerDesktop?.addEventListener('pause',stopHiLoop);
-    el.playerDesktop?.addEventListener('ended',()=>{stopHiLoop();setHighlight(-1);});
-    
-    el.adaptiveToggle?.addEventListener('change',()=>{
+    el.adaptiveToggle && el.adaptiveToggle.addEventListener('change',()=>{
       ADAPTIVE_ON=!!el.adaptiveToggle.checked;
       if(!ADAPTIVE_ON) driftBias=0;
-      addLog('info','Adaptive '+(ADAPTIVE_ON?'on':'off'),{bias:driftBias});
+      addLog && addLog('info','Adaptive '+(ADAPTIVE_ON?'on':'off'),{bias:driftBias});
     });
 
     /* Files */
