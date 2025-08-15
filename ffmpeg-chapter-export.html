@@ -226,29 +226,29 @@
       const chap = chapters[idx];
       const start = secondsToFfmpegTime(chap.startSec);
       const durationSec = (chap.endSec!=null && chap.endSec>chap.startSec) ? (chap.endSec - chap.startSec) : null;
-
+    
       log(`[INFO] Exporting chapter #${idx+1} — "${chap.title}"`);
       const ffmpeg = await ensureFFmpeg();
-
+    
       const inName = 'in.m4b', outName = 'chapter.wav';
-      await FS.unlink(ffmpeg, inName);
-      await FS.write(ffmpeg, inName, currentFileBytes);
+    
+      // ❌ Do NOT re-write 'in.m4b' here — its ArrayBuffer was already transferred.
       await FS.unlink(ffmpeg, outName);
-
+    
       ffmpeg.on?.('log', ({ message }) => { if (message) log(message); });
       ffmpeg.on?.('progress', ({ progress, time }) => {
         const pct = Math.round((progress||0)*100);
         if (!Number.isNaN(pct)) log(`[PROGRESS] ${pct}%  time=${(time||0)/1e6}s`);
       });
-
+    
       const args = ['-hide_banner','-ss', start, '-i', inName];
       if (durationSec!=null) args.push('-t', String(durationSec));
       args.push('-vn','-ac','1','-ar', sr,'-c:a','pcm_s16le', outName);
-
+    
       log('[CMD]', 'ffmpeg ' + args.join(' '));
       try {
         await ffmpeg.exec(args);
-        const wav = await FS.read(ffmpeg, outName); // Uint8Array
+        const wav = await FS.read(ffmpeg, outName);           // Uint8Array
         const a = el('dl');
         a.href = URL.createObjectURL(new Blob([wav], { type:'audio/wav' }));
         a.download = (currentFileName.replace(/\.[^.]+$/,'') || 'chapter') + ` — ${String(idx+1).padStart(2,'0')}.wav`;
